@@ -3,37 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Intel Dashboard</title>
 
-  <!-- MapLibre -->
-  <link
-    href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
-    rel="stylesheet"
-  />
+  <title>Intel Map</title>
 
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
-  <!-- Your CSS -->
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
 
   <div id="topbar">
-    Loading...
+    <span id="clockText">Loading...</span>
+
+    <label class="toggle">
+      Map Colors
+      <input type="checkbox" id="colorToggle" checked>
+    </label>
   </div>
 
   <div id="container">
-
     <div id="map"></div>
-
-    <div id="newsPanel">
-      <h3>📰 Loading News...</h3>
-    </div>
-
+    <div id="newsPanel"></div>
   </div>
 
-  <!-- Your JS -->
   <script src="script.js"></script>
 
 </body>
