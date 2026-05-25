@@ -1,4 +1,3 @@
-
 // =========================
 // MAP INIT
 // =========================
@@ -14,7 +13,15 @@ map.addControl(new maplibregl.NavigationControl());
 
 let geojsonData = null;
 let riskMap = {};
-let colorsEnabled = true;
+
+
+// =========================
+// NORMALIZER (CRITICAL FIX)
+// =========================
+
+function norm(s) {
+  return (s || "").toLowerCase().trim();
+}
 
 
 // =========================
@@ -22,7 +29,6 @@ let colorsEnabled = true;
 // =========================
 
 function updateClock() {
-
   const now = new Date();
 
   const est = new Date(
@@ -32,7 +38,6 @@ function updateClock() {
   );
 
   const el = document.getElementById("clockText");
-
   if (el) {
     el.textContent =
       est.toLocaleTimeString() +
@@ -46,13 +51,53 @@ updateClock();
 
 
 // =========================
+// LOAD RISK DATA (FIXED)
+// =========================
+
+async function loadRisk() {
+  try {
+    const res = await fetch(
+      "https://raw.githubusercontent.com/brogantrapp/intel-map/main/data/risk.json?t=" + Date.now()
+    );
+
+    const raw = await res.json();
+
+    // normalize keys so matching ALWAYS works
+    const cleaned = {};
+    for (const [k, v] of Object.entries(raw)) {
+      cleaned[norm(k)] = v;
+    }
+
+    riskMap = cleaned;
+
+    console.log("✅ Risk loaded:", Object.keys(riskMap).length);
+
+  } catch (e) {
+    console.error("❌ Risk load failed:", e);
+    riskMap = {};
+  }
+}
+
+
+// =========================
+// COLOR FUNCTION
+// =========================
+
+function getColor(level) {
+  if (level === 1) return "#2ecc71";
+  if (level === 2) return "#f1c40f";
+  if (level === 3) return "#e67e22";
+  if (level === 4) return "#e74c3c";
+  return "#2ecc71";
+}
+
+
+// =========================
 // HOME BUTTON
 // =========================
 
 class HomeControl {
-
   onAdd(map) {
-
     const div = document.createElement("div");
     div.className = "maplibregl-ctrl maplibregl-ctrl-group";
 
@@ -61,13 +106,12 @@ class HomeControl {
     btn.title = "Reset View";
 
     btn.onclick = () => {
-
       map.fitBounds([
         [-180, -85],
         [180, 85]
       ]);
 
-      map.setFilter("countries-highlight", ["==", "ISO_A2", ""]);
+      map.setFilter("countries-highlight", ["==", "name", ""]);
     };
 
     div.appendChild(btn);
@@ -77,96 +121,9 @@ class HomeControl {
   onRemove() {}
 }
 
-map.addControl(new HomeControl(), "top-right");
-
 
 // =========================
-// COLOR SYSTEM
-// =========================
-
-function levelToColor(level) {
-
-  if (level === 1) return "#2ecc71";
-  if (level === 2) return "#f1c40f";
-  if (level === 3) return "#e67e22";
-  if (level === 4) return "#e74c3c";
-
-  return "#f1c40f";
-}
-
-
-// =========================
-// LOAD GITHUB RISK DATA (ISO VERSION)
-// =========================
-
-async function loadAdvisories() {
-
-  try {
-
-    const url =
-      "https://raw.githubusercontent.com/brogantrapp/world-risk-map/main/data/risk.json";
-
-    const res = await fetch(url);
-    const data = await res.json();
-
-    riskMap = {};
-
-    // normalize ISO keys
-    Object.entries(data || {}).forEach(([iso, level]) => {
-      riskMap[iso.toUpperCase()] = Number(level);
-    });
-
-    console.log("✅ ISO risk data loaded:", riskMap);
-
-    applyColors();
-
-  } catch (e) {
-
-    console.log("❌ Risk load failed:", e);
-  }
-}
-
-
-// =========================
-// COLOR EXPRESSION (ISO MATCHING)
-// =========================
-
-function getColorExpr() {
-
-  return [
-
-    "match",
-
-    ["get", "ISO_A2"],
-
-    ...Object.entries(riskMap).flatMap(([iso, level]) => [
-      iso,
-      levelToColor(level)
-    ]),
-
-    "#f1c40f"
-  ];
-}
-
-
-// =========================
-// APPLY COLORS
-// =========================
-
-function applyColors() {
-
-  if (!map.getLayer("countries-fill")) return;
-
-  map.setPaintProperty(
-    "countries-fill",
-    "fill-color",
-    getColorExpr()
-  );
-}
-
-
-// =========================
-// LOAD MAP
+// MAP LOAD
 // =========================
 
 map.on("load", async () => {
@@ -182,12 +139,41 @@ map.on("load", async () => {
     data: geojsonData
   });
 
+  await loadRisk();
+
+  // =========================
+  // BUILD COLOR MAP (FIXED MATCHING)
+  // =========================
+
+  const colorMap = {};
+
+  geojsonData.features.forEach(f => {
+
+    const name = f.properties.name;
+    const key = norm(name);
+
+    const level = riskMap[key] || riskMap[norm(name)] || 1;
+
+    colorMap[name] = getColor(level);
+  });
+
+  // =========================
+  // COUNTRY LAYER
+  // =========================
+
   map.addLayer({
     id: "countries-fill",
     type: "fill",
     source: "countries",
     paint: {
-      "fill-color": "#f1c40f",
+      "fill-color": [
+        "match",
+        ["get", "name"],
+
+        ...Object.entries(colorMap).flat(),
+
+        "#2ecc71"
+      ],
       "fill-opacity": 0.6
     }
   });
@@ -210,35 +196,58 @@ map.on("load", async () => {
       "line-color": "#00ffff",
       "line-width": 3
     },
-    filter: ["==", "ISO_A2", ""]
+    filter: ["==", "name", ""]
   });
 
-  setTimeout(loadAdvisories, 1000);
-
-  setInterval(loadAdvisories, 86400000);
+  map.addControl(new HomeControl(), "top-right");
 });
 
 
 // =========================
-// TOGGLE (optional)
+// NEWS (SIMPLE WORKING)
 // =========================
 
-const toggle = document.getElementById("colorToggle");
+async function loadNews() {
 
-if (toggle) {
+  const panel = document.getElementById("newsPanel");
+  if (!panel) return;
 
-  toggle.addEventListener("change", (e) => {
+  panel.innerHTML = "<h3>LIVE NEWS</h3>";
 
-    colorsEnabled = e.target.checked;
+  const feeds = [
+    "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "https://rss.cnn.com/rss/edition_world.rss"
+  ];
 
-    if (colorsEnabled) {
-      loadAdvisories();
-    } else {
-      map.setPaintProperty(
-        "countries-fill",
-        "fill-color",
-        "#f1c40f"
-      );
+  for (const feed of feeds) {
+    try {
+      const res = await fetch(feed);
+      const text = await res.text();
+
+      const xml = new DOMParser().parseFromString(text, "text/xml");
+      const items = xml.querySelectorAll("item");
+
+      let count = 0;
+
+      items.forEach(item => {
+        if (count >= 6) return;
+
+        const title = item.querySelector("title")?.textContent;
+        const link = item.querySelector("link")?.textContent;
+
+        const div = document.createElement("div");
+        div.className = "news-item";
+        div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
+
+        panel.appendChild(div);
+        count++;
+      });
+
+    } catch (e) {
+      console.log("News failed:", feed);
     }
-  });
+  }
 }
+
+loadNews();
+setInterval(loadNews, 60000);
