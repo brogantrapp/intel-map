@@ -1,10 +1,40 @@
-<link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
-<script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Intel Dashboard</title>
 
-<div id="topbar"></div>
+  <!-- MapLibre -->
+  <link
+    href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+    rel="stylesheet"
+  />
 
-<div id="container">
-  <div id="map"></div>
-  <div id="newsPanel"></div>
-</div>
-<script src="script.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+  <!-- Your CSS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <div id="topbar">
+    Loading...
+  </div>
+
+  <div id="container">
+
+    <div id="map"></div>
+
+    <div id="newsPanel">
+      <h3>📰 Loading News...</h3>
+    </div>
+
+  </div>
+
+  <!-- Your JS -->
+  <script src="script.js"></script>
+
+</body>
+</html>
