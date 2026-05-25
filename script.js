@@ -1,5 +1,5 @@
 // =========================
-// MAP
+// MAP SETUP
 // =========================
 
 const map = new maplibregl.Map({
@@ -39,7 +39,7 @@ function updateClock() {
   });
 
   document.getElementById("topbar").innerHTML =
-    ` EST | ${time} |  ${date}`;
+    `EST | ${time} | ${date}`;
 }
 
 updateClock();
@@ -48,26 +48,8 @@ setInterval(updateClock, 1000);
 
 
 // =========================
-// NEWS
+// ENGLISH NEWS ONLY
 // =========================
-
-const fallbackNews = [
-  {
-    source: "BBC",
-    title: "BBC World News",
-    url: "https://www.bbc.com/news"
-  },
-  {
-    source: "CNN",
-    title: "CNN Global Headlines",
-    url: "https://www.cnn.com"
-  },
-  {
-    source: "Reuters",
-    title: "Reuters World Updates",
-    url: "https://www.reuters.com"
-  }
-];
 
 async function loadNews() {
 
@@ -75,17 +57,41 @@ async function loadNews() {
 
   try {
 
-    const res = await fetch(
-      "https://api.gdeltproject.org/api/v2/doc/doc?format=json&maxrecords=8&query=world"
-    );
+    const query =
+      "sourcecountry:US OR sourcecountry:UK " +
+      "AND (domain:bbc.com OR domain:cnn.com OR domain:reuters.com OR domain:nytimes.com)";
+
+    const url =
+      "https://api.gdeltproject.org/api/v2/doc/doc?" +
+      "query=" + encodeURIComponent(query) +
+      "&format=json" +
+      "&maxrecords=10" +
+      "&sort=datedesc";
+
+    const res = await fetch(url);
 
     const data = await res.json();
 
-    const articles = data.articles || fallbackNews;
+    const articles = data.articles || [];
 
-    panel.innerHTML = "<h3> Live News</h3>";
+    panel.innerHTML = "<h3>LIVE NEWS</h3>";
+
+    if (!articles.length) {
+
+      panel.innerHTML += "<p>No live articles found.</p>";
+      return;
+    }
 
     articles.forEach(article => {
+
+      const title = article.title || "News Update";
+
+      const source =
+        article.domain ||
+        article.sourceCountry ||
+        "News";
+
+      const link = article.url || "#";
 
       const div = document.createElement("div");
 
@@ -93,12 +99,11 @@ async function loadNews() {
 
       div.innerHTML = `
         <div class="source-label">
-          ${article.sourceCountry || article.source || "Global"}
+          ${source.toUpperCase()}
         </div>
 
-        <a href="${article.url || "#"}"
-           target="_blank">
-          ${article.title || "News Update"}
+        <a href="${link}" target="_blank">
+          ${title}
         </a>
       `;
 
@@ -110,29 +115,30 @@ async function loadNews() {
 
     console.log("News failed:", err);
 
-    panel.innerHTML = "<h3> Backup News</h3>";
+    panel.innerHTML = `
+      <h3>NEWS OFFLINE</h3>
 
-    fallbackNews.forEach(article => {
-
-      const div = document.createElement("div");
-
-      div.className = "news-item";
-
-      div.innerHTML = `
-        <div class="source-label">
-          ${article.source}
-        </div>
-
-        <a href="${article.url}"
-           target="_blank">
-          ${article.title}
+      <div class="news-item">
+        <div class="source-label">BBC</div>
+        <a href="https://bbc.com/news" target="_blank">
+          BBC World News
         </a>
-      `;
+      </div>
 
-      panel.appendChild(div);
+      <div class="news-item">
+        <div class="source-label">REUTERS</div>
+        <a href="https://reuters.com" target="_blank">
+          Reuters World Updates
+        </a>
+      </div>
 
-    });
-
+      <div class="news-item">
+        <div class="source-label">CNN</div>
+        <a href="https://cnn.com" target="_blank">
+          CNN Headlines
+        </a>
+      </div>
+    `;
   }
 }
 
@@ -142,31 +148,15 @@ setInterval(loadNews, 60000);
 
 
 // =========================
-// COUNTRY COLORS
+// COUNTRY MAP
 // =========================
 
 const countriesUrl =
   "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json";
 
-const riskLevels = {
-  "Russia": "#ff3333",
-  "Ukraine": "#ff3333",
-  "Iran": "#ff3333",
-
-  "China": "#ffcc00",
-  "United States of America": "#ffcc00",
-  "India": "#ffcc00",
-  "Brazil": "#ffcc00",
-
-  "Canada": "#00ff66",
-  "France": "#00ff66",
-  "Germany": "#00ff66",
-  "United Kingdom": "#00ff66"
-};
-
 
 // =========================
-// LOAD COUNTRIES
+// COUNTRY COLORS
 // =========================
 
 async function loadCountries() {
@@ -193,20 +183,24 @@ async function loadCountries() {
 
         ["get", "name"],
 
-        "Russia", "#ff3333",
-        "Ukraine", "#ff3333",
-        "Iran", "#ff3333",
+        // HIGH RISK
+        "Russia", "#7a1f1f",
+        "Ukraine", "#7a1f1f",
+        "Iran", "#7a1f1f",
 
-        "China", "#ffcc00",
-        "United States of America", "#ffcc00",
-        "India", "#ffcc00",
-        "Brazil", "#ffcc00",
+        // MEDIUM RISK
+        "China", "#8a6a1f",
+        "United States of America", "#8a6a1f",
+        "India", "#8a6a1f",
+        "Brazil", "#8a6a1f",
 
-        "Canada", "#00ff66",
-        "France", "#00ff66",
-        "Germany", "#00ff66",
-        "United Kingdom", "#00ff66",
+        // LOW RISK
+        "Canada", "#1f5a3a",
+        "France", "#1f5a3a",
+        "Germany", "#1f5a3a",
+        "United Kingdom", "#1f5a3a",
 
+        // DEFAULT
         "#1c1c1c"
       ],
 
@@ -220,7 +214,7 @@ async function loadCountries() {
     source: "countries",
 
     paint: {
-      "line-color": "#666",
+      "line-color": "#555",
       "line-width": 0.7,
       "line-opacity": 0.5
     }
@@ -230,7 +224,28 @@ async function loadCountries() {
 
 
 // =========================
-// START
+// COUNTRY CLICK POPUP
+// =========================
+
+map.on("click", "country-fills", (e) => {
+
+  const country =
+    e.features[0].properties.name;
+
+  new maplibregl.Popup()
+    .setLngLat(e.lngLat)
+    .setHTML(`
+      <div style="color:black;">
+        <strong>${country}</strong>
+      </div>
+    `)
+    .addTo(map);
+
+});
+
+
+// =========================
+// MAP LOAD
 // =========================
 
 map.on("load", () => {
