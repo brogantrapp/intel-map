@@ -1,3 +1,4 @@
+
 // =========================
 // MAP INIT
 // =========================
@@ -13,15 +14,28 @@ map.addControl(new maplibregl.NavigationControl());
 
 let geojsonData = null;
 let riskMap = {};
+let colorsEnabled = true;
 
 
 // =========================
-// NORMALIZER (CRITICAL FIX)
+// NORMALIZER + ALIASES FIX
 // =========================
 
 function norm(s) {
-  return (s || "").toLowerCase().trim();
+  return (s || "")
+    .toLowerCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
+
+const aliases = {
+  "united states": "united states of america",
+  "usa": "united states of america",
+  "uk": "united kingdom",
+  "russia": "russia",
+  "iran": "iran"
+};
 
 
 // =========================
@@ -51,7 +65,7 @@ updateClock();
 
 
 // =========================
-// LOAD RISK DATA (FIXED)
+// LOAD RISK (FIXED MATCHING)
 // =========================
 
 async function loadRisk() {
@@ -62,8 +76,8 @@ async function loadRisk() {
 
     const raw = await res.json();
 
-    // normalize keys so matching ALWAYS works
     const cleaned = {};
+
     for (const [k, v] of Object.entries(raw)) {
       cleaned[norm(k)] = v;
     }
@@ -93,32 +107,32 @@ function getColor(level) {
 
 
 // =========================
-// HOME BUTTON
+// APPLY COLORS (TOGGLE FIX)
 // =========================
 
-class HomeControl {
-  onAdd(map) {
-    const div = document.createElement("div");
-    div.className = "maplibregl-ctrl maplibregl-ctrl-group";
+function applyColors() {
 
-    const btn = document.createElement("button");
-    btn.innerHTML = "⌂";
-    btn.title = "Reset View";
+  const expr = [
+    "match",
+    ["get", "name"],
 
-    btn.onclick = () => {
-      map.fitBounds([
-        [-180, -85],
-        [180, 85]
-      ]);
+    ...geojsonData.features.flatMap(f => {
 
-      map.setFilter("countries-highlight", ["==", "name", ""]);
-    };
+      const name = f.properties.name;
+      const key = norm(name);
 
-    div.appendChild(btn);
-    return div;
-  }
+      const level =
+        riskMap[key] ||
+        riskMap[aliases[key]] ||
+        1;
 
-  onRemove() {}
+      return [name, colorsEnabled ? getColor(level) : "#2a2a2a"];
+    }),
+
+    "#2a2a2a"
+  ];
+
+  map.setPaintProperty("countries-fill", "fill-color", expr);
 }
 
 
@@ -141,39 +155,12 @@ map.on("load", async () => {
 
   await loadRisk();
 
-  // =========================
-  // BUILD COLOR MAP (FIXED MATCHING)
-  // =========================
-
-  const colorMap = {};
-
-  geojsonData.features.forEach(f => {
-
-    const name = f.properties.name;
-    const key = norm(name);
-
-    const level = riskMap[key] || riskMap[norm(name)] || 1;
-
-    colorMap[name] = getColor(level);
-  });
-
-  // =========================
-  // COUNTRY LAYER
-  // =========================
-
   map.addLayer({
     id: "countries-fill",
     type: "fill",
     source: "countries",
     paint: {
-      "fill-color": [
-        "match",
-        ["get", "name"],
-
-        ...Object.entries(colorMap).flat(),
-
-        "#2ecc71"
-      ],
+      "fill-color": "#2ecc71",
       "fill-opacity": 0.6
     }
   });
@@ -188,23 +175,22 @@ map.on("load", async () => {
     }
   });
 
-  map.addLayer({
-    id: "countries-highlight",
-    type: "line",
-    source: "countries",
-    paint: {
-      "line-color": "#00ffff",
-      "line-width": 3
-    },
-    filter: ["==", "name", ""]
-  });
-
-  map.addControl(new HomeControl(), "top-right");
+  applyColors();
 });
 
 
 // =========================
-// NEWS (SIMPLE WORKING)
+// TOGGLE FIX (IMPORTANT)
+// =========================
+
+document.getElementById("colorToggle").addEventListener("change", (e) => {
+  colorsEnabled = e.target.checked;
+  applyColors();
+});
+
+
+// =========================
+// NEWS (FIXED RELIABILITY)
 // =========================
 
 async function loadNews() {
@@ -214,13 +200,14 @@ async function loadNews() {
 
   panel.innerHTML = "<h3>LIVE NEWS</h3>";
 
-  const feeds = [
-    "https://feeds.bbci.co.uk/news/world/rss.xml",
-    "https://rss.cnn.com/rss/edition_world.rss"
-  ];
+  try {
 
-  for (const feed of feeds) {
-    try {
+    const feeds = [
+      "https://feeds.bbci.co.uk/news/world/rss.xml"
+    ];
+
+    for (const feed of feeds) {
+
       const res = await fetch(feed);
       const text = await res.text();
 
@@ -230,7 +217,8 @@ async function loadNews() {
       let count = 0;
 
       items.forEach(item => {
-        if (count >= 6) return;
+
+        if (count >= 8) return;
 
         const title = item.querySelector("title")?.textContent;
         const link = item.querySelector("link")?.textContent;
@@ -240,12 +228,13 @@ async function loadNews() {
         div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
 
         panel.appendChild(div);
+
         count++;
       });
-
-    } catch (e) {
-      console.log("News failed:", feed);
     }
+
+  } catch (e) {
+    console.error("❌ News failed:", e);
   }
 }
 
