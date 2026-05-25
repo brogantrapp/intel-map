@@ -1,102 +1,82 @@
 import fs from "fs";
 
-// =========================
-// SOURCES
-// =========================
-
-// 1) Stable world country list (GeoJSON)
-const COUNTRIES_URL =
-  "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json";
-
-// 2) (TEMP RELIABLE SOURCE)
-// Replace this later with State Dept parser or API
-// Format: country name → level (1–4)
-const advisorySource = {
-  "Russia": 4,
-  "Ukraine": 4,
-  "Iran": 4,
-  "China": 3,
-  "Mexico": 3,
-  "India": 2,
-  "Brazil": 2,
-  "France": 1,
-  "Germany": 1,
-  "United Kingdom": 1,
-  "Japan": 1,
-  "Canada": 1
-};
-
-
-// =========================
-// NORMALIZER
-// =========================
+const BASE_URL =
+  "https://travel.state.gov/content/travel/en/traveladvisories/traveladvisories.html";
 
 function norm(s) {
   return (s || "").toLowerCase().trim();
 }
 
+function levelFromText(text) {
+  if (!text) return null;
 
-// =========================
-// FETCH COUNTRIES
-// =========================
+  if (text.includes("Level 4")) return 4;
+  if (text.includes("Level 3")) return 3;
+  if (text.includes("Level 2")) return 2;
+  if (text.includes("Level 1")) return 1;
 
-async function getCountries() {
-  const res = await fetch(COUNTRIES_URL);
-  const geo = await res.json();
-  return geo.features.map(f => f.properties.name);
+  return null;
 }
 
+// simple HTML fetch helper
+async function fetchHTML(url) {
+  const res = await fetch(url);
+  return await res.text();
+}
 
-// =========================
-// BUILD RISK MAP (IMPORTANT FIX)
-// =========================
+async function scrapeAdvisories() {
 
-async function buildRiskMap() {
+  const html = await fetchHTML(BASE_URL);
 
-  const countries = await getCountries();
+  // extract links to country pages
+  const regex = /href="(\/content\/travel\/en\/traveladvisories\/traveladvisories\/.*?\.html)"/g;
+
+  const matches = [...html.matchAll(regex)];
+
+  const links = [...new Set(matches.map(m => m[1]))];
 
   const risk = {};
 
-  // STEP 1: default EVERY country to safe (1)
-  for (const c of countries) {
-    risk[c] = 1;
-  }
+  for (const link of links) {
 
-  // STEP 2: apply overrides
-  for (const [name, level] of Object.entries(advisorySource)) {
+    try {
+      const url = "https://travel.state.gov" + link;
+      const page = await fetchHTML(url);
 
-    // try direct match
-    let match = countries.find(c => norm(c) === norm(name));
+      // country name
+      const nameMatch = page.match(/<h1[^>]*>(.*?)<\/h1>/);
+      const country = nameMatch ? nameMatch[1].replace(/<\/?[^>]+(>|$)/g, "").trim() : null;
 
-    if (match) {
-      risk[match] = level;
-    } else {
-      console.log("⚠️ No match for:", name);
+      const levelMatch = page.match(/Level\s?[1-4]/i);
+      const level = levelFromText(levelMatch ? levelMatch[0] : "");
+
+      if (country && level) {
+        risk[country] = level;
+        console.log(`✔ ${country}: ${level}`);
+      }
+
+    } catch (e) {
+      console.log("failed:", link);
     }
   }
 
   return risk;
 }
 
-
-// =========================
-// SAVE FILE
-// =========================
-
 async function run() {
 
   try {
-    const risk = await buildRiskMap();
+    const risk = await scrapeAdvisories();
 
     fs.writeFileSync(
       "./data/risk.json",
       JSON.stringify(risk, null, 2)
     );
 
-    console.log("✅ risk.json generated with", Object.keys(risk).length, "countries");
+    console.log("✅ DONE:", Object.keys(risk).length, "countries");
 
   } catch (e) {
-    console.error("❌ Scraper failed:", e);
+    console.error("❌ scraper failed:", e);
   }
 }
 
