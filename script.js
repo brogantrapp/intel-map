@@ -14,12 +14,12 @@ map.addControl(new maplibregl.NavigationControl());
 let geojsonData = null;
 let colorsEnabled = true;
 
-// 🌍 NEW: live risk map
+//  Travel advisory data
 let riskMap = {};
 
 
 // =========================
-// HOME BUTTON (FULL WORLD VIEW)
+// HOME BUTTON
 // =========================
 
 class HomeControl {
@@ -86,7 +86,7 @@ updateClock();
 
 
 // =========================
-// COUNTRY ALIASES
+// ALIASES
 // =========================
 
 const aliases = {
@@ -101,22 +101,34 @@ const aliases = {
 
 
 // =========================
-// 🌍 TRAVEL ADVISORY SYSTEM
+// NORMALIZE
+// =========================
+
+function normalizeName(name) {
+  return (name || "").toLowerCase().trim();
+}
+
+
+// =========================
+// LEVEL → COLOR
 // =========================
 
 function levelToColor(level) {
 
   switch (level) {
-    case 1: return "#2ecc71"; // safe
-    case 2: return "#f1c40f"; // caution
-    case 3: return "#e67e22"; // reconsider travel
-    case 4: return "#e74c3c"; // do not travel
+    case 1: return "#2ecc71"; // green
+    case 2: return "#f1c40f"; // yellow
+    case 3: return "#e67e22"; // orange
+    case 4: return "#e74c3c"; // red
     default: return "#1c1c1c";
   }
 }
 
 
-// fetch + build risk map
+// =========================
+// LOAD STATE DEPT ADVISORIES
+// =========================
+
 async function loadAdvisories() {
 
   try {
@@ -129,13 +141,15 @@ async function loadAdvisories() {
 
     const mapObj = {};
 
-    (data.data || data || []).forEach(item => {
+    const list = data.data || data || [];
 
-      const name = (item.country || "").toLowerCase().trim();
-      const level = parseInt(item.advisoryLevel);
+    list.forEach(item => {
 
-      if (name && level) {
-        mapObj[name] = level;
+      const country = normalizeName(item.country);
+      const level = Number(item.advisoryLevel);
+
+      if (country && level >= 1 && level <= 4) {
+        mapObj[country] = level;
       }
     });
 
@@ -143,31 +157,36 @@ async function loadAdvisories() {
 
     applyColors();
 
-  } catch (e) {
-    console.log("Advisory load failed:", e);
+  } catch (err) {
+    console.log("Advisory load failed:", err);
   }
 }
 
 
 // =========================
-// COLORS (NOW LIVE DATA BASED)
+// COLORS (FIXED SAFE VERSION)
 // =========================
 
 function getColorExpr() {
 
-  const expr = [
-    "match",
-    ["downcase", ["get", "name"]]
+  return [
+    "case",
+
+    ["==", colorsEnabled, false],
+    "#2a2a2a",
+
+    [
+      "match",
+      ["downcase", ["get", "name"]],
+
+      ...Object.entries(riskMap).flatMap(([country, level]) => [
+        country,
+        levelToColor(level)
+      ]),
+
+      "#1c1c1c"
+    ]
   ];
-
-  for (const [country, level] of Object.entries(riskMap)) {
-
-    expr.push(country, levelToColor(level));
-  }
-
-  expr.push("#1c1c1c");
-
-  return expr;
 }
 
 
@@ -180,7 +199,7 @@ function applyColors() {
   map.setPaintProperty(
     "countries-fill",
     "fill-color",
-    colorsEnabled ? getColorExpr() : "#2a2a2a"
+    getColorExpr()
   );
 
   map.setPaintProperty(
@@ -274,7 +293,6 @@ function setupSearch() {
       div.textContent = name;
 
       div.onclick = () => {
-
         box.value = name;
         list.style.display = "none";
 
@@ -431,6 +449,7 @@ map.on("load", async () => {
 
   setupSearch();
   setupClick();
+
   applyColors();
   loadNews();
   loadAdvisories();
