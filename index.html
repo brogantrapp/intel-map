@@ -18,8 +18,14 @@
 
     <span id="clockText">Loading...</span>
 
-    <!-- SEARCH BAR -->
-    <input id="searchBox" type="text" placeholder="Search country..." />
+    <!-- SEARCH + AUTOCOMPLETE -->
+    <div id="searchWrapper">
+
+      <input id="searchBox" type="text" placeholder="Search country..." autocomplete="off"/>
+
+      <div id="suggestions"></div>
+
+    </div>
 
     <label class="toggle">
       Map Colors
