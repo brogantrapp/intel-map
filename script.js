@@ -12,60 +12,25 @@ const map = new maplibregl.Map({
 
 map.addControl(new maplibregl.NavigationControl());
 
-let geojsonData = null;
+let geojsonData;
 let riskMap = {};
 let colorsEnabled = true;
 
 
 // =========================
-// NORMALIZER + ALIASES FIX
+// NORMALIZER
 // =========================
 
 function norm(s) {
   return (s || "")
     .toLowerCase()
-    .replace(/\./g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-const aliases = {
-  "united states": "united states of america",
-  "usa": "united states of america",
-  "uk": "united kingdom",
-  "russia": "russia",
-  "iran": "iran"
-};
-
 
 // =========================
-// CLOCK
-// =========================
-
-function updateClock() {
-  const now = new Date();
-
-  const est = new Date(
-    now.toLocaleString("en-US", {
-      timeZone: "America/New_York"
-    })
-  );
-
-  const el = document.getElementById("clockText");
-  if (el) {
-    el.textContent =
-      est.toLocaleTimeString() +
-      " | " +
-      est.toLocaleDateString();
-  }
-}
-
-setInterval(updateClock, 1000);
-updateClock();
-
-
-// =========================
-// LOAD RISK (FIXED MATCHING)
+// LOAD RISK (DEBUG VERSION)
 // =========================
 
 async function loadRisk() {
@@ -76,19 +41,18 @@ async function loadRisk() {
 
     const raw = await res.json();
 
-    const cleaned = {};
+    console.log("RAW RISK KEYS:", Object.keys(raw).slice(0, 10));
+
+    riskMap = {};
 
     for (const [k, v] of Object.entries(raw)) {
-      cleaned[norm(k)] = v;
+      riskMap[norm(k)] = v;
     }
 
-    riskMap = cleaned;
-
-    console.log("✅ Risk loaded:", Object.keys(riskMap).length);
+    console.log("NORMALIZED RISK KEYS:", Object.keys(riskMap).slice(0, 10));
 
   } catch (e) {
-    console.error("❌ Risk load failed:", e);
-    riskMap = {};
+    console.error("❌ Risk load failed FULL:", e);
   }
 }
 
@@ -107,30 +71,39 @@ function getColor(level) {
 
 
 // =========================
-// APPLY COLORS (TOGGLE FIX)
+// APPLY COLORS (DEBUG VERSION)
 // =========================
 
 function applyColors() {
 
+  if (!geojsonData) {
+    console.warn("GeoJSON not loaded yet");
+    return;
+  }
+
+  let matched = 0;
+  let total = geojsonData.features.length;
+
   const expr = [
     "match",
-    ["get", "name"],
-
-    ...geojsonData.features.flatMap(f => {
-
-      const name = f.properties.name;
-      const key = norm(name);
-
-      const level =
-        riskMap[key] ||
-        riskMap[aliases[key]] ||
-        1;
-
-      return [name, colorsEnabled ? getColor(level) : "#2a2a2a"];
-    }),
-
-    "#2a2a2a"
+    ["get", "name"]
   ];
+
+  geojsonData.features.forEach(f => {
+
+    const name = f.properties.name;
+    const key = norm(name);
+
+    const level = riskMap[key];
+
+    if (level) matched++;
+
+    expr.push(name, getColor(level || 1));
+  });
+
+  expr.push("#2ecc71");
+
+  console.log(`MATCHED ${matched}/${total} countries`);
 
   map.setPaintProperty("countries-fill", "fill-color", expr);
 }
@@ -153,8 +126,6 @@ map.on("load", async () => {
     data: geojsonData
   });
 
-  await loadRisk();
-
   map.addLayer({
     id: "countries-fill",
     type: "fill",
@@ -165,78 +136,69 @@ map.on("load", async () => {
     }
   });
 
-  map.addLayer({
-    id: "countries-border",
-    type: "line",
-    source: "countries",
-    paint: {
-      "line-color": "#444",
-      "line-width": 0.7
-    }
-  });
+  await loadRisk();
 
   applyColors();
 });
 
 
 // =========================
-// TOGGLE FIX (IMPORTANT)
+// NEWS (DEBUG FIX)
+// =========================
+
+async function loadNews() {
+
+  const panel = document.getElementById("newsPanel");
+
+  if (!panel) {
+    console.error("❌ newsPanel NOT FOUND in HTML");
+    return;
+  }
+
+  panel.innerHTML = "<h3>LIVE NEWS</h3>";
+
+  try {
+    const res = await fetch("https://feeds.bbci.co.uk/news/world/rss.xml");
+
+    const text = await res.text();
+
+    const xml = new DOMParser().parseFromString(text, "text/xml");
+    const items = xml.querySelectorAll("item");
+
+    console.log("NEWS ITEMS FOUND:", items.length);
+
+    let count = 0;
+
+    items.forEach(item => {
+
+      if (count >= 8) return;
+
+      const title = item.querySelector("title")?.textContent;
+      const link = item.querySelector("link")?.textContent;
+
+      const div = document.createElement("div");
+      div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
+      panel.appendChild(div);
+
+      count++;
+    });
+
+  } catch (e) {
+    console.error("❌ NEWS FAILED:", e);
+  }
+}
+
+loadNews();
+setInterval(loadNews, 60000);
+
+
+// =========================
+// TOGGLE DEBUG
 // =========================
 
 document.getElementById("colorToggle").addEventListener("change", (e) => {
   colorsEnabled = e.target.checked;
   applyColors();
 });
-
-
-// =========================
-// NEWS (FIXED RELIABILITY)
-// =========================
-
-async function loadNews() {
-
-  const panel = document.getElementById("newsPanel");
-  if (!panel) return;
-
-  panel.innerHTML = "<h3>LIVE NEWS</h3>";
-
-  try {
-
-    const feeds = [
-      "https://feeds.bbci.co.uk/news/world/rss.xml"
-    ];
-
-    for (const feed of feeds) {
-
-      const res = await fetch(feed);
-      const text = await res.text();
-
-      const xml = new DOMParser().parseFromString(text, "text/xml");
-      const items = xml.querySelectorAll("item");
-
-      let count = 0;
-
-      items.forEach(item => {
-
-        if (count >= 8) return;
-
-        const title = item.querySelector("title")?.textContent;
-        const link = item.querySelector("link")?.textContent;
-
-        const div = document.createElement("div");
-        div.className = "news-item";
-        div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
-
-        panel.appendChild(div);
-
-        count++;
-      });
-    }
-
-  } catch (e) {
-    console.error("❌ News failed:", e);
-  }
-}
-
 loadNews();
 setInterval(loadNews, 60000);
