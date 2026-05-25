@@ -14,7 +14,7 @@ map.addControl(new maplibregl.NavigationControl());
 
 
 // =========================
-// CLOCK (CENTERED TOP BAR)
+// CLOCK
 // =========================
 
 function updateClock() {
@@ -35,16 +35,23 @@ function updateClock() {
     day: "numeric"
   });
 
-  document.getElementById("topbar").innerHTML =
+  document.getElementById("clockText").textContent =
     `EST ${time} | ${date}`;
 }
 
-updateClock();
 setInterval(updateClock, 1000);
+updateClock();
 
 
 // =========================
-// RELIABLE ENGLISH NEWS (RSS)
+// TOGGLE STATE
+// =========================
+
+let colorsEnabled = true;
+
+
+// =========================
+// NEWS (STABLE RSS)
 // =========================
 
 const feeds = [
@@ -54,7 +61,6 @@ const feeds = [
   "https://feeds.a.dj.com/rss/RSSWorldNews.xml"
 ];
 
-// RSS → JSON proxy (works in browser)
 const rssProxy = "https://api.rss2json.com/v1/api.json?rss_url=";
 
 async function loadNews() {
@@ -63,7 +69,7 @@ async function loadNews() {
 
   panel.innerHTML = "<h3>LIVE NEWS</h3>";
 
-  let allArticles = [];
+  let all = [];
 
   try {
 
@@ -75,35 +81,22 @@ async function loadNews() {
 
       if (data.items) {
 
-        const items = data.items.map(item => ({
-          title: item.title,
-          link: item.link,
+        all.push(...data.items.map(i => ({
+          title: i.title,
+          link: i.link,
           source: data.feed?.title || "News"
-        }));
-
-        allArticles = allArticles.concat(items);
+        })));
       }
     }
 
-    if (!allArticles.length) {
-      panel.innerHTML += "<p>No news available.</p>";
-      return;
-    }
-
-    // limit + display
-    allArticles.slice(0, 12).forEach(article => {
+    all.slice(0, 12).forEach(a => {
 
       const div = document.createElement("div");
       div.className = "news-item";
 
       div.innerHTML = `
-        <div class="source-label">
-          ${article.source}
-        </div>
-
-        <a href="${article.link}" target="_blank">
-          ${article.title}
-        </a>
+        <div class="source-label">${a.source}</div>
+        <a href="${a.link}" target="_blank">${a.title}</a>
       `;
 
       panel.appendChild(div);
@@ -112,21 +105,7 @@ async function loadNews() {
 
   } catch (err) {
 
-    console.log("News error:", err);
-
-    panel.innerHTML = `
-      <h3>NEWS OFFLINE</h3>
-
-      <div class="news-item">
-        <div class="source-label">BBC</div>
-        <a href="https://bbc.com/news" target="_blank">BBC News</a>
-      </div>
-
-      <div class="news-item">
-        <div class="source-label">REUTERS</div>
-        <a href="https://reuters.com" target="_blank">Reuters</a>
-      </div>
-    `;
+    panel.innerHTML += "<p>News unavailable</p>";
   }
 }
 
@@ -138,21 +117,48 @@ setInterval(loadNews, 60000);
 // COUNTRIES
 // =========================
 
-const countriesUrl =
+const url =
   "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json";
+
+function getColor(name) {
+
+  if (!colorsEnabled) return "#2b2b2b";
+
+  switch (name) {
+
+    case "Russia":
+    case "Ukraine":
+    case "Iran":
+      return "#7a1f1f";
+
+    case "China":
+    case "United States of America":
+    case "India":
+      return "#8a6a1f";
+
+    case "Canada":
+    case "France":
+    case "Germany":
+    case "United Kingdom":
+      return "#1f5a3a";
+
+    default:
+      return "#1c1c1c";
+  }
+}
 
 async function loadCountries() {
 
-  const res = await fetch(countriesUrl);
-  const geojson = await res.json();
+  const res = await fetch(url);
+  const geo = await res.json();
 
   map.addSource("countries", {
     type: "geojson",
-    data: geojson
+    data: geo
   });
 
   map.addLayer({
-    id: "country-fill",
+    id: "countries-fill",
     type: "fill",
     source: "countries",
 
@@ -181,16 +187,67 @@ async function loadCountries() {
   });
 
   map.addLayer({
-    id: "country-borders",
+    id: "countries-border",
     type: "line",
     source: "countries",
     paint: {
       "line-color": "#555",
-      "line-width": 0.7,
-      "line-opacity": 0.5
+      "line-width": 0.7
     }
   });
+
+  updateColorLayer();
 }
+
+
+// =========================
+// TOGGLE LOGIC
+// =========================
+
+function updateColorLayer() {
+
+  if (!map.getLayer("countries-fill")) return;
+
+  map.setPaintProperty(
+    "countries-fill",
+    "fill-color",
+    colorsEnabled ? [
+      "match",
+      ["get", "name"],
+
+      "Russia", "#7a1f1f",
+      "Ukraine", "#7a1f1f",
+      "Iran", "#7a1f1f",
+
+      "China", "#8a6a1f",
+      "United States of America", "#8a6a1f",
+      "India", "#8a6a1f",
+
+      "Canada", "#1f5a3a",
+      "France", "#1f5a3a",
+      "Germany", "#1f5a3a",
+      "United Kingdom", "#1f5a3a",
+
+      "#1c1c1c"
+    ] : "#2b2b2b"
+  );
+}
+
+
+// =========================
+// TOGGLE SWITCH
+// =========================
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  document.getElementById("colorToggle").addEventListener("change", (e) => {
+
+    colorsEnabled = e.target.checked;
+
+    updateColorLayer();
+
+  });
+});
 
 
 // =========================
