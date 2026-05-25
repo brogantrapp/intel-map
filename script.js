@@ -1,5 +1,6 @@
+
 // =========================
-// MAP
+// MAP INIT
 // =========================
 
 const map = new maplibregl.Map({
@@ -16,32 +17,39 @@ let colorsEnabled = true;
 
 
 // =========================
-// HOME BUTTON CONTROL
+// HOME BUTTON (FULL WORLD VIEW)
 // =========================
 
 class HomeControl {
   onAdd(map) {
+
     this.map = map;
     this.container = document.createElement("div");
 
     this.container.className = "maplibregl-ctrl maplibregl-ctrl-group";
 
-    this.button = document.createElement("button");
-    this.button.type = "button";
-    this.button.title = "Reset View";
-    this.button.innerHTML = "⌂";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.title = "Reset View";
+    btn.innerHTML = "⌂";
 
-    this.button.onclick = () => {
-      map.flyTo({
-        center: [10, 25],
-        zoom: 2,
-        duration: 1000
-      });
+    btn.onclick = () => {
+
+      map.fitBounds(
+        [
+          [-180, -85],
+          [180, 85]
+        ],
+        {
+          padding: 20,
+          duration: 1200
+        }
+      );
 
       map.setFilter("countries-highlight", ["==", "name", ""]);
     };
 
-    this.container.appendChild(this.button);
+    this.container.appendChild(btn);
     return this.container;
   }
 
@@ -77,7 +85,7 @@ updateClock();
 
 
 // =========================
-// ALIASES
+// COUNTRY ALIASES
 // =========================
 
 const aliases = {
@@ -94,7 +102,7 @@ const aliases = {
 
 
 // =========================
-// COLOR FUNCTION
+// COLORS
 // =========================
 
 function getColorExpr() {
@@ -103,6 +111,7 @@ function getColorExpr() {
     "match",
     ["get", "name"],
 
+    // RUSSIA FIX (both dataset variants)
     "Russia", "#7a1f1f",
     "Russian Federation", "#7a1f1f",
 
@@ -124,7 +133,7 @@ function getColorExpr() {
 
 
 // =========================
-// APPLY COLORS (TOGGLE FIXED)
+// APPLY COLORS (TOGGLE SAFE)
 // =========================
 
 function applyColors() {
@@ -172,6 +181,7 @@ function zoomTo(feature) {
   const bounds = new maplibregl.LngLatBounds();
 
   function walk(c) {
+
     if (typeof c[0] === "number") {
       bounds.extend(c);
     } else {
@@ -230,6 +240,7 @@ function setupSearch() {
       div.textContent = name;
 
       div.onclick = () => {
+
         box.value = name;
         list.style.display = "none";
 
@@ -279,7 +290,7 @@ function setupSearch() {
 
 
 // =========================
-// CLICK TO ZOOM
+// CLICK MAP
 // =========================
 
 function setupClick() {
@@ -411,7 +422,7 @@ map.on("load", async () => {
 
 
 // =========================
-// TOGGLE EVENT
+// TOGGLE
 // =========================
 
 document.getElementById("colorToggle").addEventListener("change", (e) => {
