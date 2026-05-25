@@ -110,7 +110,7 @@ async function loadNews() {
 
     console.log("News failed:", err);
 
-    panel.innerHTML = "<h3>📰 Backup News</h3>";
+    panel.innerHTML = "<h3> Backup News</h3>";
 
     fallbackNews.forEach(article => {
 
