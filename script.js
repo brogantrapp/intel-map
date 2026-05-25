@@ -48,6 +48,9 @@ updateClock();
 
 const countryCoords = {
   "united states of america": [-98, 39],
+  "united states": [-98, 39],
+  "us": [-98, 39],
+  "usa": [-98, 39],
   "canada": [-106, 56],
   "mexico": [-102, 23],
   "brazil": [-51, -10],
