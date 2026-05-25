@@ -1,3 +1,4 @@
+
 // =========================
 // MAP
 // =========================
@@ -41,7 +42,7 @@ updateClock();
 
 
 // =========================
-// COUNTRY ALIASES (FIXES RUSSIA / USA / UK ETC)
+// ALIASES
 // =========================
 
 const aliases = {
@@ -49,10 +50,8 @@ const aliases = {
   "usa": "united states of america",
   "us": "united states of america",
   "u.s.": "united states of america",
-  "united states": "united states of america",
 
   "uk": "united kingdom",
-  "u.k.": "united kingdom",
   "britain": "united kingdom",
 
   "russia": "russian federation",
@@ -65,7 +64,7 @@ const aliases = {
 
 
 // =========================
-// COLOR TOGGLE (UNCHANGED LOGIC)
+// COLORS
 // =========================
 
 document.getElementById("colorToggle").addEventListener("change", (e) => {
@@ -119,7 +118,7 @@ function getColorExpr() {
 
 
 // =========================
-// SEARCH + HIGHLIGHT + AUTOCOMPLETE
+// SEARCH + HIGHLIGHT
 // =========================
 
 function setupSearch() {
@@ -127,49 +126,23 @@ function setupSearch() {
   const box = document.getElementById("searchBox");
   const list = document.getElementById("suggestions");
 
-  function normalize(input) {
-
-    const q = input.toLowerCase().trim();
-
-    return aliases[q] || q;
+  function normalize(q) {
+    return aliases[q.toLowerCase().trim()] || q.toLowerCase().trim();
   }
 
   function getCountries() {
-
     return geojsonData.features
       .map(f => f.properties.name)
       .filter(Boolean)
       .sort();
   }
 
+  function highlight(name) {
 
-// -------------------------
-// HIGHLIGHT FUNCTION
-// -------------------------
-
-  function highlightCountry(name) {
-
-    // reset previous highlight
-    if (highlightedId !== null) {
-
-      map.setFilter("countries-highlight", ["==", "name", ""]);
-    }
-
-    highlightedId = name;
-
-    map.setFilter("countries-highlight", [
-      "==",
-      "name",
-      name
-    ]);
+    map.setFilter("countries-highlight", ["==", "name", name]);
   }
 
-
-// -------------------------
-// ZOOM FUNCTION (FIXED + SAFE)
-// -------------------------
-
-  function zoomToCountry(name) {
+  function zoom(name) {
 
     const feature = geojsonData.features.find(f =>
       f.properties.name.toLowerCase() === name.toLowerCase()
@@ -179,12 +152,11 @@ function setupSearch() {
 
     const bounds = new maplibregl.LngLatBounds();
 
-    function walk(coords) {
-
-      if (typeof coords[0] === "number") {
-        bounds.extend(coords);
+    function walk(c) {
+      if (typeof c[0] === "number") {
+        bounds.extend(c);
       } else {
-        coords.forEach(walk);
+        c.forEach(walk);
       }
     }
 
@@ -192,17 +164,11 @@ function setupSearch() {
 
     map.fitBounds(bounds, {
       padding: 80,
-      maxZoom: 5,
-      duration: 900
+      maxZoom: 5
     });
 
-    highlightCountry(feature.properties.name);
+    highlight(feature.properties.name);
   }
-
-
-// -------------------------
-// AUTOCOMPLETE
-// -------------------------
 
   function show(matches) {
 
@@ -220,12 +186,9 @@ function setupSearch() {
       div.textContent = name;
 
       div.onclick = () => {
-
         box.value = name;
-
         list.style.display = "none";
-
-        zoomToCountry(name);
+        zoom(name);
       };
 
       list.appendChild(div);
@@ -233,11 +196,6 @@ function setupSearch() {
 
     list.style.display = "block";
   }
-
-
-// -------------------------
-// INPUT EVENT
-// -------------------------
 
   box.addEventListener("input", () => {
 
@@ -255,30 +213,15 @@ function setupSearch() {
     show(matches);
   });
 
-
-// -------------------------
-// ENTER KEY
-// -------------------------
-
   box.addEventListener("keydown", (e) => {
 
     if (e.key === "Enter") {
-
-      const q = normalize(box.value);
-
-      zoomToCountry(q);
-
+      zoom(box.value);
       list.style.display = "none";
     }
   });
 
-
-// -------------------------
-// CLOSE DROPDOWN
-// -------------------------
-
   document.addEventListener("click", (e) => {
-
     if (!document.getElementById("searchWrapper").contains(e.target)) {
       list.style.display = "none";
     }
@@ -287,7 +230,63 @@ function setupSearch() {
 
 
 // =========================
-// LOAD DATA
+// NEWS (RESTORED FIXED)
+// =========================
+
+const feeds = [
+  "https://feeds.bbci.co.uk/news/world/rss.xml",
+  "https://rss.cnn.com/rss/edition_world.rss",
+  "https://www.reuters.com/rssFeed/worldNews"
+];
+
+const proxy = "https://api.rss2json.com/v1/api.json?rss_url=";
+
+async function loadNews() {
+
+  const panel = document.getElementById("newsPanel");
+
+  panel.innerHTML = "<h3>LIVE NEWS</h3>";
+
+  let all = [];
+
+  for (const f of feeds) {
+
+    try {
+
+      const res = await fetch(proxy + encodeURIComponent(f));
+      const data = await res.json();
+
+      if (data.items) {
+
+        all.push(...data.items.map(i => ({
+          title: i.title,
+          link: i.link,
+          source: data.feed?.title || "News"
+        })));
+      }
+
+    } catch (e) {
+      console.log("News feed failed:", f);
+    }
+  }
+
+  all.slice(0, 15).forEach(a => {
+
+    const div = document.createElement("div");
+    div.className = "news-item";
+
+    div.innerHTML = `
+      <div class="source-label">${a.source}</div>
+      <a href="${a.link}" target="_blank">${a.title}</a>
+    `;
+
+    panel.appendChild(div);
+  });
+}
+
+
+// =========================
+// MAP LOAD
 // =========================
 
 map.on("load", async () => {
@@ -319,12 +318,10 @@ map.on("load", async () => {
     source: "countries",
     paint: {
       "line-color": "#555",
-      "line-width": 0.7,
-      "line-opacity": 0.6
+      "line-width": 0.7
     }
   });
 
-  // NEW: highlight layer
   map.addLayer({
     id: "countries-highlight",
     type: "line",
@@ -338,4 +335,6 @@ map.on("load", async () => {
 
   setupSearch();
   updateColors();
+  loadNews();
+  setInterval(loadNews, 60000);
 });
