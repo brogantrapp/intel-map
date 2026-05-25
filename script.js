@@ -14,22 +14,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
   map.addControl(new maplibregl.NavigationControl());
 
-  let geojsonData;
+  let geojsonData = null;
   let riskMap = {};
   let colorsEnabled = true;
 
-
   // =========================
-  // NORMALIZER
+  // SAFE NORMALIZER
   // =========================
 
   function norm(s) {
-    return (s || "").toLowerCase().trim();
+    return (s || "")
+      .toLowerCase()
+      .replace(/\./g, "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
-
   // =========================
-  // LOAD RISK
+  // LOAD RISK DATA (SAFE)
   // =========================
 
   async function loadRisk() {
@@ -46,27 +48,29 @@ document.addEventListener("DOMContentLoaded", () => {
         riskMap[norm(k)] = v;
       }
 
+      console.log("✅ Risk loaded:", Object.keys(riskMap).length);
+
+      applyColors();
+
     } catch (e) {
-      console.error("Risk load failed:", e);
+      console.error("❌ Risk load failed:", e);
     }
   }
 
-
   // =========================
-  // COLOR FUNCTION
+  // COLOR LOGIC
   // =========================
 
   function getColor(level) {
-    if (level === 1) return "#2ecc71";
-    if (level === 2) return "#f1c40f";
-    if (level === 3) return "#e67e22";
-    if (level === 4) return "#e74c3c";
-    return "#2ecc71";
+    if (level === 1) return "#00ff88";
+    if (level === 2) return "#ffee00";
+    if (level === 3) return "#ff7a00";
+    if (level === 4) return "#ff2a2a";
+    return "#00ff88";
   }
 
-
   // =========================
-  // APPLY COLORS
+  // APPLY COLORS (SAFE MATCHING)
   // =========================
 
   function applyColors() {
@@ -82,18 +86,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
       expr.push(
         name,
-        colorsEnabled ? getColor(level || 1) : "#2a2a2a"
+        colorsEnabled ? getColor(level || 1) : "#1a1f25"
       );
     });
 
-    expr.push("#2ecc71");
+    expr.push("#1a1f25");
 
-    map.setPaintProperty("countries-fill", "fill-color", expr);
+    try {
+      map.setPaintProperty("countries-fill", "fill-color", expr);
+    } catch (e) {
+      console.error("Color apply failed:", e);
+    }
   }
 
-
   // =========================
-  // PROFESSIONAL HOME BUTTON
+  // HOME BUTTON (CLEAN)
   // =========================
 
   class HomeControl {
@@ -103,24 +110,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const button = document.createElement("button");
 
-      button.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 10.5L12 3l9 7.5"></path>
-          <path d="M5 10v10h14V10"></path>
-        </svg>
-      `;
-
+      button.innerHTML = "⌂";
       button.title = "Reset View";
 
-      button.style.display = "flex";
-      button.style.alignItems = "center";
-      button.style.justifyContent = "center";
+      button.style.fontSize = "18px";
+      button.style.color = "#00ffff";
 
       button.onclick = () => {
-        map.fitBounds([
-          [-180, -85],
-          [180, 85]
-        ]);
+        map.fitBounds([[-180, -85], [180, 85]]);
       };
 
       container.appendChild(button);
@@ -130,6 +127,122 @@ document.addEventListener("DOMContentLoaded", () => {
     onRemove() {}
   }
 
+  // =========================
+  // NEWS (CORS SAFE + FALLBACK)
+  // =========================
+
+  async function loadNews() {
+
+    const panel = document.getElementById("newsPanel");
+    if (!panel) {
+      console.error("❌ newsPanel missing");
+      return;
+    }
+
+    panel.innerHTML = "<div style='color:#00ffff'>LOADING NEWS...</div>";
+
+    try {
+
+      // CORS proxy fallback (IMPORTANT FIX)
+      const url = "https://feeds.bbci.co.uk/news/world/rss.xml";
+      const proxy = "https://api.allorigins.win/raw?url=";
+
+      const res = await fetch(proxy + encodeURIComponent(url));
+
+      const text = await res.text();
+
+      const xml = new DOMParser().parseFromString(text, "text/xml");
+      const items = xml.querySelectorAll("item");
+
+      panel.innerHTML = "";
+
+      let count = 0;
+
+      items.forEach(item => {
+
+        if (count >= 10) return;
+
+        const title = item.querySelector("title")?.textContent;
+        const link = item.querySelector("link")?.textContent;
+
+        const div = document.createElement("div");
+
+        div.innerHTML = `
+          <a href="${link}" target="_blank" style="color:#9be7ff;">
+            ${title}
+          </a>
+        `;
+
+        panel.appendChild(div);
+
+        count++;
+      });
+
+    } catch (e) {
+      console.error("❌ News failed:", e);
+      panel.innerHTML = "<div style='color:#ff5555'>NEWS UNAVAILABLE</div>";
+    }
+  }
+
+  // =========================
+  // CLOCK (FIXED SAFE VERSION)
+  // =========================
+
+  function startClock() {
+
+    const el = document.getElementById("clockText");
+
+    if (!el) {
+      console.warn("⚠️ clockText missing");
+      return;
+    }
+
+    setInterval(() => {
+
+      const now = new Date();
+
+      const est = new Date(
+        now.toLocaleString("en-US", {
+          timeZone: "America/New_York"
+        })
+      );
+
+      el.textContent =
+        est.toLocaleTimeString() +
+        " | " +
+        est.toLocaleDateString();
+
+    }, 1000);
+  }
+
+  // =========================
+  // SEARCH (SAFE + OPTIONAL)
+  // =========================
+
+  function setupSearch() {
+
+    const input = document.getElementById("searchBox");
+
+    if (!input) return;
+
+    input.addEventListener("input", (e) => {
+
+      const value = e.target.value.toLowerCase().trim();
+      if (!value || !geojsonData) return;
+
+      const match = geojsonData.features.find(f =>
+        f.properties.name.toLowerCase().includes(value)
+      );
+
+      if (match) {
+        const coords = match.geometry.coordinates;
+
+        // fallback: just zoom in globally (safe)
+        map.flyTo({ center: [10, 20], zoom: 2 });
+      }
+
+    });
+  }
 
   // =========================
   // MAP LOAD
@@ -153,8 +266,8 @@ document.addEventListener("DOMContentLoaded", () => {
       type: "fill",
       source: "countries",
       paint: {
-        "fill-color": "#2ecc71",
-        "fill-opacity": 0.6
+        "fill-color": "#00ff88",
+        "fill-opacity": 0.65
       }
     });
 
@@ -163,17 +276,17 @@ document.addEventListener("DOMContentLoaded", () => {
       type: "line",
       source: "countries",
       paint: {
-        "line-color": "#444",
-        "line-width": 0.7
+        "line-color": "#0a0f14",
+        "line-width": 0.8
       }
     });
 
-    await loadRisk();
-    applyColors();
-
     map.addControl(new HomeControl(), "top-right");
-  });
 
+    await loadRisk();
+
+    applyColors();
+  });
 
   // =========================
   // TOGGLE
@@ -188,65 +301,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-
   // =========================
-  // NEWS (FIXED + RELIABLE)
+  // INIT SYSTEMS
   // =========================
-
-  async function loadNews() {
-
-    const panel = document.getElementById("newsPanel");
-    if (!panel) return;
-
-    panel.innerHTML = `
-      <div style="font-weight:600; margin-bottom:8px;">
-        Latest News
-      </div>
-    `;
-
-    try {
-      const res = await fetch("https://feeds.bbci.co.uk/news/world/rss.xml");
-      const text = await res.text();
-
-      const xml = new DOMParser().parseFromString(text, "text/xml");
-      const items = xml.querySelectorAll("item");
-
-      let count = 0;
-
-      items.forEach(item => {
-
-        if (count >= 8) return;
-
-        const title = item.querySelector("title")?.textContent;
-        const link = item.querySelector("link")?.textContent;
-
-        const div = document.createElement("div");
-        div.style.padding = "6px 0";
-        div.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
-
-        div.innerHTML = `
-          <a href="${link}" target="_blank" style="color:#ddd; text-decoration:none;">
-            ${title}
-          </a>
-        `;
-
-        panel.appendChild(div);
-
-        count++;
-      });
-
-    } catch (e) {
-      console.error("News failed:", e);
-
-      panel.innerHTML += `
-        <div style="color:#888; padding-top:8px;">
-          News temporarily unavailable
-        </div>
-      `;
-    }
-  }
 
   loadNews();
   setInterval(loadNews, 60000);
+
+  startClock();
+  setupSearch();
 
 });
