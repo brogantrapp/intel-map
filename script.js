@@ -1,4 +1,3 @@
-
 // =========================
 // MAP
 // =========================
@@ -14,6 +13,7 @@ map.addControl(new maplibregl.NavigationControl());
 
 let geojsonData = null;
 let colorsEnabled = true;
+let highlightedId = null;
 
 
 // =========================
@@ -41,13 +41,35 @@ updateClock();
 
 
 // =========================
-// COLOR TOGGLE (FIXED)
+// COUNTRY ALIASES (FIXES RUSSIA / USA / UK ETC)
+// =========================
+
+const aliases = {
+
+  "usa": "united states of america",
+  "us": "united states of america",
+  "u.s.": "united states of america",
+  "united states": "united states of america",
+
+  "uk": "united kingdom",
+  "u.k.": "united kingdom",
+  "britain": "united kingdom",
+
+  "russia": "russian federation",
+
+  "drc": "democratic republic of the congo",
+  "congo": "democratic republic of the congo",
+
+  "uae": "united arab emirates"
+};
+
+
+// =========================
+// COLOR TOGGLE (UNCHANGED LOGIC)
 // =========================
 
 document.getElementById("colorToggle").addEventListener("change", (e) => {
-
   colorsEnabled = e.target.checked;
-
   updateColors();
 });
 
@@ -59,7 +81,6 @@ function updateColors() {
     colorsEnabled ? getColorExpr() : "#2a2a2a"
   );
 
-  // FIX: borders also toggle properly
   map.setPaintProperty(
     "countries-border",
     "line-color",
@@ -73,18 +94,13 @@ function updateColors() {
   );
 }
 
-
-// =========================
-// COLOR LOGIC
-// =========================
-
 function getColorExpr() {
 
   return [
     "match",
     ["get", "name"],
 
-    "Russia", "#7a1f1f",
+    "Russian Federation", "#7a1f1f",
     "Ukraine", "#7a1f1f",
     "Iran", "#7a1f1f",
 
@@ -103,13 +119,20 @@ function getColorExpr() {
 
 
 // =========================
-// SEARCH (FIXED ACCURATE ZOOM)
+// SEARCH + HIGHLIGHT + AUTOCOMPLETE
 // =========================
 
 function setupSearch() {
 
   const box = document.getElementById("searchBox");
   const list = document.getElementById("suggestions");
+
+  function normalize(input) {
+
+    const q = input.toLowerCase().trim();
+
+    return aliases[q] || q;
+  }
 
   function getCountries() {
 
@@ -118,6 +141,33 @@ function setupSearch() {
       .filter(Boolean)
       .sort();
   }
+
+
+// -------------------------
+// HIGHLIGHT FUNCTION
+// -------------------------
+
+  function highlightCountry(name) {
+
+    // reset previous highlight
+    if (highlightedId !== null) {
+
+      map.setFilter("countries-highlight", ["==", "name", ""]);
+    }
+
+    highlightedId = name;
+
+    map.setFilter("countries-highlight", [
+      "==",
+      "name",
+      name
+    ]);
+  }
+
+
+// -------------------------
+// ZOOM FUNCTION (FIXED + SAFE)
+// -------------------------
 
   function zoomToCountry(name) {
 
@@ -145,9 +195,16 @@ function setupSearch() {
       maxZoom: 5,
       duration: 900
     });
+
+    highlightCountry(feature.properties.name);
   }
 
-  function showSuggestions(matches) {
+
+// -------------------------
+// AUTOCOMPLETE
+// -------------------------
+
+  function show(matches) {
 
     list.innerHTML = "";
 
@@ -165,6 +222,7 @@ function setupSearch() {
       div.onclick = () => {
 
         box.value = name;
+
         list.style.display = "none";
 
         zoomToCountry(name);
@@ -176,9 +234,14 @@ function setupSearch() {
     list.style.display = "block";
   }
 
+
+// -------------------------
+// INPUT EVENT
+// -------------------------
+
   box.addEventListener("input", () => {
 
-    const q = box.value.toLowerCase().trim();
+    const q = normalize(box.value);
 
     if (!q) {
       list.style.display = "none";
@@ -189,16 +252,30 @@ function setupSearch() {
       c.toLowerCase().includes(q)
     );
 
-    showSuggestions(matches);
+    show(matches);
   });
+
+
+// -------------------------
+// ENTER KEY
+// -------------------------
 
   box.addEventListener("keydown", (e) => {
 
     if (e.key === "Enter") {
-      zoomToCountry(box.value.trim());
+
+      const q = normalize(box.value);
+
+      zoomToCountry(q);
+
       list.style.display = "none";
     }
   });
+
+
+// -------------------------
+// CLOSE DROPDOWN
+// -------------------------
 
   document.addEventListener("click", (e) => {
 
@@ -210,7 +287,7 @@ function setupSearch() {
 
 
 // =========================
-// LOAD MAP DATA
+// LOAD DATA
 // =========================
 
 map.on("load", async () => {
@@ -245,6 +322,18 @@ map.on("load", async () => {
       "line-width": 0.7,
       "line-opacity": 0.6
     }
+  });
+
+  // NEW: highlight layer
+  map.addLayer({
+    id: "countries-highlight",
+    type: "line",
+    source: "countries",
+    paint: {
+      "line-color": "#00ffff",
+      "line-width": 3
+    },
+    filter: ["==", "name", ""]
   });
 
   setupSearch();
