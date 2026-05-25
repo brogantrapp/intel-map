@@ -1,0 +1,50 @@
+name: Update Risk Map Daily
+
+on:
+  schedule:
+    - cron: "0 12 * * *"  # once per day (UTC)
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch advisory data
+        run: |
+          curl -s "https://travel.state.gov/content/travel/en/traveladvisories/traveladvisories.json" > raw.json
+
+      - name: Generate risk.json
+        run: |
+          node -e "
+          const fs = require('fs');
+
+          const data = JSON.parse(fs.readFileSync('raw.json','utf8'));
+
+          const list = data.data || data.advisories || data || [];
+
+          const normalize = s => (s||'').toLowerCase().trim();
+
+          const risk = {};
+
+          list.forEach(i => {
+            const country = normalize(i.country || i.name || i.country_name);
+            const level = Number(i.advisoryLevel || i.level || i.risk_level);
+            if (country && level >= 1 && level <= 4) {
+              risk[country] = level;
+            }
+          });
+
+          fs.writeFileSync('data/risk.json', JSON.stringify(risk, null, 2));
+          "
+
+      - name: Commit changes
+        run: |
+          git config --global user.name "auto-bot"
+          git config --global user.email "bot@users.noreply.github.com"
+          git add data/risk.json
+          git commit -m "auto update risk map" || echo "no changes"
+          git push
