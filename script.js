@@ -13,6 +13,7 @@ map.addControl(new maplibregl.NavigationControl());
 
 let geojsonData = null;
 let riskMap = {};
+let colorsEnabled = true;
 
 
 // =========================
@@ -20,6 +21,7 @@ let riskMap = {};
 // =========================
 
 function updateClock() {
+
   const now = new Date();
 
   const est = new Date(
@@ -29,6 +31,7 @@ function updateClock() {
   );
 
   const el = document.getElementById("clockText");
+
   if (el) {
     el.textContent =
       est.toLocaleTimeString() +
@@ -42,44 +45,13 @@ updateClock();
 
 
 // =========================
-// LOAD RISK DATA
-// =========================
-
-async function loadRisk() {
-  try {
-    const res = await fetch(
-      "https://raw.githubusercontent.com/brogantrapp/intel-map/main/data/risk.json?t=" + Date.now()
-    );
-
-    riskMap = await res.json();
-    console.log("✅ Risk loaded:", Object.keys(riskMap).length);
-
-  } catch (e) {
-    console.error("❌ Risk load failed:", e);
-    riskMap = {};
-  }
-}
-
-
-// =========================
-// COLOR FUNCTION
-// =========================
-
-function getColor(level) {
-  if (level === 1) return "#2ecc71";
-  if (level === 2) return "#f1c40f";
-  if (level === 3) return "#e67e22";
-  if (level === 4) return "#e74c3c";
-  return "#2ecc71";
-}
-
-
-// =========================
 // HOME BUTTON
 // =========================
 
 class HomeControl {
+
   onAdd(map) {
+
     const div = document.createElement("div");
     div.className = "maplibregl-ctrl maplibregl-ctrl-group";
 
@@ -88,12 +60,13 @@ class HomeControl {
     btn.title = "Reset View";
 
     btn.onclick = () => {
+
       map.fitBounds([
         [-180, -85],
         [180, 85]
       ]);
 
-      map.setFilter("countries-highlight", ["==", "name", ""]);
+      map.setFilter("countries-highlight", ["==", "ADMIN", ""]);
     };
 
     div.appendChild(btn);
@@ -103,9 +76,92 @@ class HomeControl {
   onRemove() {}
 }
 
+map.addControl(new HomeControl(), "top-right");
+
 
 // =========================
-// MAP LOAD
+// COLORS
+// =========================
+
+function levelToColor(level) {
+
+  if (level === 1) return "#2ecc71";
+  if (level === 2) return "#f1c40f";
+  if (level === 3) return "#e67e22";
+  if (level === 4) return "#e74c3c";
+
+  return "#2a2a2a";
+}
+
+
+// =========================
+// LOAD RISK DATA (GITHUB)
+// =========================
+
+async function loadAdvisories() {
+
+  try {
+
+    const url =
+      "https://raw.githubusercontent.com/YOUR_USERNAME/world-risk-map/main/data/risk.json";
+
+    const res = await fetch(url);
+
+    const data = await res.json();
+
+    riskMap = data || {};
+
+    console.log("✅ GitHub risk data loaded:", riskMap);
+
+    applyColors();
+
+  } catch (e) {
+
+    console.log("❌ Failed to load risk data:", e);
+  }
+}
+
+
+// =========================
+// COLOR EXPRESSION
+// =========================
+
+function getColorExpr() {
+
+  return [
+
+    "match",
+
+    ["downcase", ["get", "name"]],
+
+    ...Object.entries(riskMap).flatMap(([country, level]) => [
+      country.toLowerCase(),
+      levelToColor(level)
+    ]),
+
+    "#2a2a2a"
+  ];
+}
+
+
+// =========================
+// APPLY COLORS
+// =========================
+
+function applyColors() {
+
+  if (!map.getLayer("countries-fill")) return;
+
+  map.setPaintProperty(
+    "countries-fill",
+    "fill-color",
+    colorsEnabled ? getColorExpr() : "#2a2a2a"
+  );
+}
+
+
+// =========================
+// LOAD MAP
 // =========================
 
 map.on("load", async () => {
@@ -121,39 +177,12 @@ map.on("load", async () => {
     data: geojsonData
   });
 
-  await loadRisk();
-
-  // =========================
-  // BUILD FULL COLOR MAP (FIX)
-  // =========================
-
-  const colorMap = {};
-
-  geojsonData.features.forEach(f => {
-
-    const name = f.properties.name;
-    const level = riskMap[name];
-
-    colorMap[name] = getColor(level || 1);
-  });
-
-  // =========================
-  // COUNTRY LAYER
-  // =========================
-
   map.addLayer({
     id: "countries-fill",
     type: "fill",
     source: "countries",
     paint: {
-      "fill-color": [
-        "match",
-        ["get", "name"],
-
-        ...Object.entries(colorMap).flat(),
-
-        "#2ecc71"
-      ],
+      "fill-color": "#2a2a2a",
       "fill-opacity": 0.6
     }
   });
@@ -163,7 +192,7 @@ map.on("load", async () => {
     type: "line",
     source: "countries",
     paint: {
-      "line-color": "#444",
+      "line-color": "#555",
       "line-width": 0.7
     }
   });
@@ -176,58 +205,25 @@ map.on("load", async () => {
       "line-color": "#00ffff",
       "line-width": 3
     },
-    filter: ["==", "name", ""]
+    filter: ["==", "ADMIN", ""]
   });
 
-  map.addControl(new HomeControl(), "top-right");
+  // 🔥 load GitHub data AFTER map is ready
+  setTimeout(loadAdvisories, 1000);
 });
 
 
 // =========================
-// NEWS (WORKING SIMPLE VERSION)
+// TOGGLE (optional checkbox)
 // =========================
 
-async function loadNews() {
+const toggle = document.getElementById("colorToggle");
 
-  const panel = document.getElementById("newsPanel");
-  if (!panel) return;
-
-  panel.innerHTML = "<h3>LIVE NEWS</h3>";
-
-  const feeds = [
-    "https://feeds.bbci.co.uk/news/world/rss.xml",
-    "https://rss.cnn.com/rss/edition_world.rss"
-  ];
-
-  for (const feed of feeds) {
-    try {
-      const res = await fetch(feed);
-      const text = await res.text();
-
-      const xml = new DOMParser().parseFromString(text, "text/xml");
-      const items = xml.querySelectorAll("item");
-
-      let count = 0;
-
-      items.forEach(item => {
-        if (count >= 6) return;
-
-        const title = item.querySelector("title")?.textContent;
-        const link = item.querySelector("link")?.textContent;
-
-        const div = document.createElement("div");
-        div.className = "news-item";
-        div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
-
-        panel.appendChild(div);
-        count++;
-      });
-
-    } catch (e) {
-      console.log("News failed:", feed);
-    }
-  }
+if (toggle) {
+  toggle.addEventListener("change", (e) => {
+    colorsEnabled = e.target.checked;
+    applyColors();
+  });
 }
-
 loadNews();
 setInterval(loadNews, 60000);
