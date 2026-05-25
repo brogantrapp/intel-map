@@ -1,4 +1,3 @@
-
 // =========================
 // MAP
 // =========================
@@ -14,6 +13,43 @@ map.addControl(new maplibregl.NavigationControl());
 
 let geojsonData = null;
 let colorsEnabled = true;
+
+
+// =========================
+// HOME BUTTON CONTROL
+// =========================
+
+class HomeControl {
+  onAdd(map) {
+    this.map = map;
+    this.container = document.createElement("div");
+
+    this.container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+
+    this.button = document.createElement("button");
+    this.button.type = "button";
+    this.button.title = "Reset View";
+    this.button.innerHTML = "⌂";
+
+    this.button.onclick = () => {
+      map.flyTo({
+        center: [10, 25],
+        zoom: 2,
+        duration: 1000
+      });
+
+      map.setFilter("countries-highlight", ["==", "name", ""]);
+    };
+
+    this.container.appendChild(this.button);
+    return this.container;
+  }
+
+  onRemove() {
+    this.container.parentNode.removeChild(this.container);
+    this.map = undefined;
+  }
+}
 
 
 // =========================
@@ -50,14 +86,15 @@ const aliases = {
   "us": "United States of America",
   "uk": "United Kingdom",
   "britain": "United Kingdom",
-  "russia": "Russia", // IMPORTANT FIX
+
+  "russia": "Russia",
   "drc": "Democratic Republic of the Congo",
   "congo": "Democratic Republic of the Congo"
 };
 
 
 // =========================
-// COLOR LOGIC (FIXED RUSSIA HERE)
+// COLOR FUNCTION
 // =========================
 
 function getColorExpr() {
@@ -66,7 +103,6 @@ function getColorExpr() {
     "match",
     ["get", "name"],
 
-    // RUSSIA FIX (handles both dataset versions)
     "Russia", "#7a1f1f",
     "Russian Federation", "#7a1f1f",
 
@@ -88,19 +124,28 @@ function getColorExpr() {
 
 
 // =========================
-// APPLY COLORS (FIXED TOGGLE)
+// APPLY COLORS (TOGGLE FIXED)
 // =========================
 
 function applyColors() {
 
-  const fillColor = colorsEnabled ? getColorExpr() : "#2a2a2a";
-  const borderColor = colorsEnabled ? "#555" : "#2a2a2a";
-  const borderOpacity = colorsEnabled ? 0.6 : 0.1;
+  map.setPaintProperty(
+    "countries-fill",
+    "fill-color",
+    colorsEnabled ? getColorExpr() : "#2a2a2a"
+  );
 
-  map.setPaintProperty("countries-fill", "fill-color", fillColor);
+  map.setPaintProperty(
+    "countries-border",
+    "line-color",
+    colorsEnabled ? "#555" : "#2a2a2a"
+  );
 
-  map.setPaintProperty("countries-border", "line-color", borderColor);
-  map.setPaintProperty("countries-border", "line-opacity", borderOpacity);
+  map.setPaintProperty(
+    "countries-border",
+    "line-opacity",
+    colorsEnabled ? 0.6 : 0.1
+  );
 }
 
 
@@ -127,7 +172,6 @@ function zoomTo(feature) {
   const bounds = new maplibregl.LngLatBounds();
 
   function walk(c) {
-
     if (typeof c[0] === "number") {
       bounds.extend(c);
     } else {
@@ -160,7 +204,7 @@ function setupSearch() {
     return aliases[q.toLowerCase().trim()] || q;
   }
 
-  function countries() {
+  function getCountries() {
     return geojsonData.features.map(f => f.properties.name);
   }
 
@@ -186,7 +230,6 @@ function setupSearch() {
       div.textContent = name;
 
       div.onclick = () => {
-
         box.value = name;
         list.style.display = "none";
 
@@ -209,7 +252,7 @@ function setupSearch() {
       return;
     }
 
-    show(countries().filter(c =>
+    show(getCountries().filter(c =>
       c.toLowerCase().includes(q)
     ));
   });
@@ -236,15 +279,13 @@ function setupSearch() {
 
 
 // =========================
-// CLICK MAP (IMPORTANT)
+// CLICK TO ZOOM
 // =========================
 
 function setupClick() {
 
   map.on("click", "countries-fill", (e) => {
-
-    const f = e.features[0];
-    zoomTo(f);
+    zoomTo(e.features[0]);
   });
 
   map.on("mouseenter", "countries-fill", () => {
@@ -258,7 +299,7 @@ function setupClick() {
 
 
 // =========================
-// NEWS (UNCHANGED WORKING)
+// NEWS
 // =========================
 
 const feeds = [
@@ -359,6 +400,8 @@ map.on("load", async () => {
     filter: ["==", "name", ""]
   });
 
+  map.addControl(new HomeControl(), "top-right");
+
   setupSearch();
   setupClick();
   applyColors();
@@ -372,8 +415,6 @@ map.on("load", async () => {
 // =========================
 
 document.getElementById("colorToggle").addEventListener("change", (e) => {
-
   colorsEnabled = e.target.checked;
-
   applyColors();
 });
