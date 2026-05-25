@@ -42,29 +42,10 @@ setInterval(updateClock, 1000);
 updateClock();
 
 
-// =========================
-// SEARCH FUNCTION
-// =========================
 
-const countryCoords = {
-  "united states of america": [-98, 39],
-  "united states": [-98, 39],
-  "us": [-98, 39],
-  "usa": [-98, 39],
-  "canada": [-106, 56],
-  "mexico": [-102, 23],
-  "brazil": [-51, -10],
-  "united kingdom": [-3, 55],
-  "france": [2, 46],
-  "germany": [10, 51],
-  "russia": [105, 61],
-  "china": [104, 35],
-  "india": [78, 22],
-  "japan": [138, 36],
-  "australia": [133, -25],
-  "iran": [53, 32],
-  "ukraine": [31, 49]
-};
+// =========================
+// SMART COUNTRY SEARCH (FULL WORLD)
+// =========================
 
 function setupSearch() {
 
@@ -76,19 +57,46 @@ function setupSearch() {
 
     const query = box.value.toLowerCase().trim();
 
-    const coords = countryCoords[query];
+    const features = map.querySourceFeatures("countries");
 
-    if (coords) {
+    let match = null;
 
-      map.flyTo({
-        center: coords,
-        zoom: 4
-      });
+    for (const f of features) {
 
-    } else {
+      const name = (f.properties.name || "").toLowerCase();
 
-      alert("Country not found in database");
+      if (name.includes(query)) {
+        match = f;
+        break;
+      }
     }
+
+    if (!match) {
+      alert("Country not found");
+      return;
+    }
+
+    // get bounding box of country
+    const coords = match.geometry.coordinates;
+
+    let bounds = new maplibregl.LngLatBounds();
+
+    function addCoords(c) {
+
+      if (typeof c[0] === "number") {
+        bounds.extend(c);
+      } else {
+        c.forEach(addCoords);
+      }
+    }
+
+    addCoords(coords);
+
+    map.fitBounds(bounds, {
+      padding: 40,
+      maxZoom: 5
+    });
+
   });
 }
 
