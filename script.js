@@ -1,314 +1,233 @@
+// =========================
+// MAP INIT
+// =========================
 
-document.addEventListener("DOMContentLoaded", () => {
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  center: [10, 20],
+  zoom: 1.8
+});
 
-  // =========================
-  // MAP INIT
-  // =========================
+map.addControl(new maplibregl.NavigationControl());
 
-  const map = new maplibregl.Map({
-    container: "map",
-    style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-    center: [10, 20],
-    zoom: 1.8
+let geojsonData = null;
+let riskMap = {};
+
+
+// =========================
+// CLOCK
+// =========================
+
+function updateClock() {
+  const now = new Date();
+
+  const est = new Date(
+    now.toLocaleString("en-US", {
+      timeZone: "America/New_York"
+    })
+  );
+
+  const el = document.getElementById("clockText");
+  if (el) {
+    el.textContent =
+      est.toLocaleTimeString() +
+      " | " +
+      est.toLocaleDateString();
+  }
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+
+
+// =========================
+// LOAD RISK DATA
+// =========================
+
+async function loadRisk() {
+  try {
+    const res = await fetch(
+      "https://raw.githubusercontent.com/brogantrapp/intel-map/main/data/risk.json?t=" + Date.now()
+    );
+
+    riskMap = await res.json();
+    console.log("✅ Risk loaded:", Object.keys(riskMap).length);
+
+  } catch (e) {
+    console.error("❌ Risk load failed:", e);
+    riskMap = {};
+  }
+}
+
+
+// =========================
+// COLOR FUNCTION
+// =========================
+
+function getColor(level) {
+  if (level === 1) return "#2ecc71";
+  if (level === 2) return "#f1c40f";
+  if (level === 3) return "#e67e22";
+  if (level === 4) return "#e74c3c";
+  return "#2ecc71";
+}
+
+
+// =========================
+// HOME BUTTON
+// =========================
+
+class HomeControl {
+  onAdd(map) {
+    const div = document.createElement("div");
+    div.className = "maplibregl-ctrl maplibregl-ctrl-group";
+
+    const btn = document.createElement("button");
+    btn.innerHTML = "⌂";
+    btn.title = "Reset View";
+
+    btn.onclick = () => {
+      map.fitBounds([
+        [-180, -85],
+        [180, 85]
+      ]);
+
+      map.setFilter("countries-highlight", ["==", "name", ""]);
+    };
+
+    div.appendChild(btn);
+    return div;
+  }
+
+  onRemove() {}
+}
+
+
+// =========================
+// MAP LOAD
+// =========================
+
+map.on("load", async () => {
+
+  const res = await fetch(
+    "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
+  );
+
+  geojsonData = await res.json();
+
+  map.addSource("countries", {
+    type: "geojson",
+    data: geojsonData
   });
 
-  map.addControl(new maplibregl.NavigationControl());
-
-  let geojsonData = null;
-  let riskMap = {};
-  let colorsEnabled = true;
+  await loadRisk();
 
   // =========================
-  // SAFE NORMALIZER
+  // BUILD FULL COLOR MAP (FIX)
   // =========================
 
-  function norm(s) {
-    return (s || "")
-      .toLowerCase()
-      .replace(/\./g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
+  const colorMap = {};
+
+  geojsonData.features.forEach(f => {
+
+    const name = f.properties.name;
+    const level = riskMap[name];
+
+    colorMap[name] = getColor(level || 1);
+  });
 
   // =========================
-  // LOAD RISK DATA (SAFE)
+  // COUNTRY LAYER
   // =========================
 
-  async function loadRisk() {
+  map.addLayer({
+    id: "countries-fill",
+    type: "fill",
+    source: "countries",
+    paint: {
+      "fill-color": [
+        "match",
+        ["get", "name"],
+
+        ...Object.entries(colorMap).flat(),
+
+        "#2ecc71"
+      ],
+      "fill-opacity": 0.6
+    }
+  });
+
+  map.addLayer({
+    id: "countries-border",
+    type: "line",
+    source: "countries",
+    paint: {
+      "line-color": "#444",
+      "line-width": 0.7
+    }
+  });
+
+  map.addLayer({
+    id: "countries-highlight",
+    type: "line",
+    source: "countries",
+    paint: {
+      "line-color": "#00ffff",
+      "line-width": 3
+    },
+    filter: ["==", "name", ""]
+  });
+
+  map.addControl(new HomeControl(), "top-right");
+});
+
+
+// =========================
+// NEWS (WORKING SIMPLE VERSION)
+// =========================
+
+async function loadNews() {
+
+  const panel = document.getElementById("newsPanel");
+  if (!panel) return;
+
+  panel.innerHTML = "<h3>LIVE NEWS</h3>";
+
+  const feeds = [
+    "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "https://rss.cnn.com/rss/edition_world.rss"
+  ];
+
+  for (const feed of feeds) {
     try {
-      const res = await fetch(
-        "https://raw.githubusercontent.com/brogantrapp/intel-map/main/data/risk.json?t=" + Date.now()
-      );
-
-      const raw = await res.json();
-
-      riskMap = {};
-
-      for (const [k, v] of Object.entries(raw)) {
-        riskMap[norm(k)] = v;
-      }
-
-      console.log("✅ Risk loaded:", Object.keys(riskMap).length);
-
-      applyColors();
-
-    } catch (e) {
-      console.error("❌ Risk load failed:", e);
-    }
-  }
-
-  // =========================
-  // COLOR LOGIC
-  // =========================
-
-  function getColor(level) {
-    if (level === 1) return "#00ff88";
-    if (level === 2) return "#ffee00";
-    if (level === 3) return "#ff7a00";
-    if (level === 4) return "#ff2a2a";
-    return "#00ff88";
-  }
-
-  // =========================
-  // APPLY COLORS (SAFE MATCHING)
-  // =========================
-
-  function applyColors() {
-
-    if (!geojsonData) return;
-
-    const expr = ["match", ["get", "name"]];
-
-    geojsonData.features.forEach(f => {
-
-      const name = f.properties.name;
-      const level = riskMap[norm(name)];
-
-      expr.push(
-        name,
-        colorsEnabled ? getColor(level || 1) : "#1a1f25"
-      );
-    });
-
-    expr.push("#1a1f25");
-
-    try {
-      map.setPaintProperty("countries-fill", "fill-color", expr);
-    } catch (e) {
-      console.error("Color apply failed:", e);
-    }
-  }
-
-  // =========================
-  // HOME BUTTON (CLEAN)
-  // =========================
-
-  class HomeControl {
-    onAdd(map) {
-      const container = document.createElement("div");
-      container.className = "maplibregl-ctrl maplibregl-ctrl-group";
-
-      const button = document.createElement("button");
-
-      button.innerHTML = "⌂";
-      button.title = "Reset View";
-
-      button.style.fontSize = "18px";
-      button.style.color = "#00ffff";
-
-      button.onclick = () => {
-        map.fitBounds([[-180, -85], [180, 85]]);
-      };
-
-      container.appendChild(button);
-      return container;
-    }
-
-    onRemove() {}
-  }
-
-  // =========================
-  // NEWS (CORS SAFE + FALLBACK)
-  // =========================
-
-  async function loadNews() {
-
-    const panel = document.getElementById("newsPanel");
-    if (!panel) {
-      console.error("❌ newsPanel missing");
-      return;
-    }
-
-    panel.innerHTML = "<div style='color:#00ffff'>LOADING NEWS...</div>";
-
-    try {
-
-      // CORS proxy fallback (IMPORTANT FIX)
-      const url = "https://feeds.bbci.co.uk/news/world/rss.xml";
-      const proxy = "https://api.allorigins.win/raw?url=";
-
-      const res = await fetch(proxy + encodeURIComponent(url));
-
+      const res = await fetch(feed);
       const text = await res.text();
 
       const xml = new DOMParser().parseFromString(text, "text/xml");
       const items = xml.querySelectorAll("item");
 
-      panel.innerHTML = "";
-
       let count = 0;
 
       items.forEach(item => {
-
-        if (count >= 10) return;
+        if (count >= 6) return;
 
         const title = item.querySelector("title")?.textContent;
         const link = item.querySelector("link")?.textContent;
 
         const div = document.createElement("div");
-
-        div.innerHTML = `
-          <a href="${link}" target="_blank" style="color:#9be7ff;">
-            ${title}
-          </a>
-        `;
+        div.className = "news-item";
+        div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
 
         panel.appendChild(div);
-
         count++;
       });
 
     } catch (e) {
-      console.error("❌ News failed:", e);
-      panel.innerHTML = "<div style='color:#ff5555'>NEWS UNAVAILABLE</div>";
+      console.log("News failed:", feed);
     }
   }
+}
 
-  // =========================
-  // CLOCK (FIXED SAFE VERSION)
-  // =========================
-
-  function startClock() {
-
-    const el = document.getElementById("clockText");
-
-    if (!el) {
-      console.warn("⚠️ clockText missing");
-      return;
-    }
-
-    setInterval(() => {
-
-      const now = new Date();
-
-      const est = new Date(
-        now.toLocaleString("en-US", {
-          timeZone: "America/New_York"
-        })
-      );
-
-      el.textContent =
-        est.toLocaleTimeString() +
-        " | " +
-        est.toLocaleDateString();
-
-    }, 1000);
-  }
-
-  // =========================
-  // SEARCH (SAFE + OPTIONAL)
-  // =========================
-
-  function setupSearch() {
-
-    const input = document.getElementById("searchBox");
-
-    if (!input) return;
-
-    input.addEventListener("input", (e) => {
-
-      const value = e.target.value.toLowerCase().trim();
-      if (!value || !geojsonData) return;
-
-      const match = geojsonData.features.find(f =>
-        f.properties.name.toLowerCase().includes(value)
-      );
-
-      if (match) {
-        const coords = match.geometry.coordinates;
-
-        // fallback: just zoom in globally (safe)
-        map.flyTo({ center: [10, 20], zoom: 2 });
-      }
-
-    });
-  }
-
-  // =========================
-  // MAP LOAD
-  // =========================
-
-  map.on("load", async () => {
-
-    const res = await fetch(
-      "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
-    );
-
-    geojsonData = await res.json();
-
-    map.addSource("countries", {
-      type: "geojson",
-      data: geojsonData
-    });
-
-    map.addLayer({
-      id: "countries-fill",
-      type: "fill",
-      source: "countries",
-      paint: {
-        "fill-color": "#00ff88",
-        "fill-opacity": 0.65
-      }
-    });
-
-    map.addLayer({
-      id: "countries-border",
-      type: "line",
-      source: "countries",
-      paint: {
-        "line-color": "#0a0f14",
-        "line-width": 0.8
-      }
-    });
-
-    map.addControl(new HomeControl(), "top-right");
-
-    await loadRisk();
-
-    applyColors();
-  });
-
-  // =========================
-  // TOGGLE
-  // =========================
-
-  const toggle = document.getElementById("colorToggle");
-
-  if (toggle) {
-    toggle.addEventListener("change", (e) => {
-      colorsEnabled = e.target.checked;
-      applyColors();
-    });
-  }
-
-  // =========================
-  // INIT SYSTEMS
-  // =========================
-
-  loadNews();
-  setInterval(loadNews, 60000);
-
-  startClock();
-  setupSearch();
-
-});
+loadNews();
+setInterval(loadNews, 60000);
