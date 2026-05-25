@@ -51,36 +51,23 @@ class HomeControl {
     this.map = map;
 
     const div = document.createElement("div");
-
-    div.className =
-      "maplibregl-ctrl maplibregl-ctrl-group";
+    div.className = "maplibregl-ctrl maplibregl-ctrl-group";
 
     const btn = document.createElement("button");
-
     btn.innerHTML = "⌂";
     btn.title = "Reset View";
 
     btn.onclick = () => {
 
-      map.fitBounds(
-        [
-          [-180, -85],
-          [180, 85]
-        ],
-        {
-          padding: 20,
-          duration: 1000
-        }
-      );
+      map.fitBounds([
+        [-180, -85],
+        [180, 85]
+      ]);
 
-      map.setFilter(
-        "countries-highlight",
-        ["==", "ADMIN", ""]
-      );
+      map.setFilter("countries-highlight", ["==", "ADMIN", ""]);
     };
 
     div.appendChild(btn);
-
     return div;
   }
 
@@ -91,26 +78,7 @@ map.addControl(new HomeControl(), "top-right");
 
 
 // =========================
-// SEARCH ALIASES
-// =========================
-
-const aliases = {
-
-  "usa": "United States of America",
-  "us": "United States of America",
-
-  "uk": "United Kingdom",
-
-  "russia": "Russia",
-
-  "drc": "Democratic Republic of the Congo",
-
-  "uae": "United Arab Emirates"
-};
-
-
-// =========================
-// LEVEL → COLOR
+// LEVEL COLORS
 // =========================
 
 function levelToColor(level) {
@@ -125,7 +93,7 @@ function levelToColor(level) {
 
 
 // =========================
-// LOAD ADVISORIES
+// LOAD ADVISORIES (GITHUB VERSION)
 // =========================
 
 async function loadAdvisories() {
@@ -133,85 +101,56 @@ async function loadAdvisories() {
   try {
 
     const url =
-      "https://api.allorigins.win/raw?url=" +
-      encodeURIComponent(
-        "https://travel.state.gov/content/travel/en/traveladvisories/traveladvisories.json"
-      );
+      "https://raw.githubusercontent.com/josh/us-state-travel-advisories-feeds/master/advisories.json";
 
     const res = await fetch(url);
-
     const data = await res.json();
 
     const temp = {};
 
-    const list = data.data || data || [];
+    /**
+     * We do NOT assume structure — we normalize it safely
+     * because GitHub datasets often vary slightly
+     */
 
-    // COUNTRY NAME FIXES
-    const nameFixes = {
-
-      "united states":
-        "united states of america",
-
-      "russian federation":
-        "russia",
-
-      "korea, south":
-        "south korea",
-
-      "korea, north":
-        "north korea",
-
-      "congo, democratic republic of the":
-        "democratic republic of the congo",
-
-      "czech republic":
-        "czechia",
-
-      "burma":
-        "myanmar",
-
-      "eswatini":
-        "swaziland"
-    };
+    const list =
+      Array.isArray(data)
+        ? data
+        : (data.data || data.advisories || []);
 
     list.forEach(item => {
 
-      let country =
-        (item.country || "")
+      const country =
+        (
+          item.country ||
+          item.name ||
+          item.country_name ||
+          ""
+        )
           .toLowerCase()
           .trim();
 
       const level =
-        Number(item.advisoryLevel);
+        Number(
+          item.advisoryLevel ||
+          item.level ||
+          item.risk_level
+        );
 
-      if (nameFixes[country]) {
-        country = nameFixes[country];
-      }
-
-      if (
-        country &&
-        level >= 1 &&
-        level <= 4
-      ) {
+      if (country && level >= 1 && level <= 4) {
         temp[country] = level;
       }
     });
 
     riskMap = temp;
 
-    console.log(
-      "Loaded advisories:",
-      riskMap
-    );
+    console.log("GitHub advisories loaded:", riskMap);
 
     applyColors();
 
   } catch (e) {
 
-    console.log(
-      "Advisory load failed:",
-      e
-    );
+    console.log("Advisory load failed:", e);
   }
 }
 
@@ -231,21 +170,16 @@ function getColorExpr() {
 
       [
         "coalesce",
-
         ["get", "name"],
         ["get", "ADMIN"],
         ["get", "NAME"]
       ]
     ],
 
-    ...Object.entries(riskMap).flatMap(
-      ([country, level]) => [
-
-        country,
-
-        levelToColor(level)
-      ]
-    ),
+    ...Object.entries(riskMap).flatMap(([country, level]) => [
+      country,
+      levelToColor(level)
+    ]),
 
     "#2a2a2a"
   ];
@@ -260,22 +194,14 @@ function applyColors() {
 
   map.setPaintProperty(
     "countries-fill",
-
     "fill-color",
-
-    colorsEnabled
-      ? getColorExpr()
-      : "#2a2a2a"
+    colorsEnabled ? getColorExpr() : "#2a2a2a"
   );
 
   map.setPaintProperty(
     "countries-border",
-
     "line-color",
-
-    colorsEnabled
-      ? "#555"
-      : "#2a2a2a"
+    colorsEnabled ? "#555" : "#2a2a2a"
   );
 }
 
@@ -286,329 +212,16 @@ function applyColors() {
 
 function highlight(name) {
 
-  map.setFilter(
-    "countries-highlight",
-
+  map.setFilter("countries-highlight", [
+    "==",
     [
-      "==",
-
-      [
-        "coalesce",
-
-        ["get", "name"],
-        ["get", "ADMIN"],
-        ["get", "NAME"]
-      ],
-
-      name
-    ]
-  );
-}
-
-
-// =========================
-// ZOOM
-// =========================
-
-function zoomTo(feature) {
-
-  const bounds =
-    new maplibregl.LngLatBounds();
-
-  function walk(coords) {
-
-    if (
-      typeof coords[0] === "number"
-    ) {
-      bounds.extend(coords);
-    }
-
-    else {
-      coords.forEach(walk);
-    }
-  }
-
-  walk(feature.geometry.coordinates);
-
-  map.fitBounds(bounds, {
-    padding: 80,
-    maxZoom: 5,
-    duration: 1000
-  });
-
-  const name =
-    feature.properties.name ||
-    feature.properties.ADMIN ||
-    feature.properties.NAME;
-
-  highlight(name);
-}
-
-
-// =========================
-// SEARCH
-// =========================
-
-function setupSearch() {
-
-  const box =
-    document.getElementById(
-      "searchBox"
-    );
-
-  const list =
-    document.getElementById(
-      "suggestions"
-    );
-
-  function normalize(q) {
-
-    return (
-      aliases[
-        q.toLowerCase().trim()
-      ] || q
-    );
-  }
-
-  function getCountries() {
-
-    return geojsonData.features.map(
-      f =>
-
-        f.properties.name ||
-        f.properties.ADMIN ||
-        f.properties.NAME
-    );
-  }
-
-  function find(name) {
-
-    return geojsonData.features.find(
-      f => {
-
-        const n =
-          (
-            f.properties.name ||
-            f.properties.ADMIN ||
-            f.properties.NAME
-          )
-          .toLowerCase();
-
-        return (
-          n === name.toLowerCase()
-        );
-      }
-    );
-  }
-
-  function show(matches) {
-
-    list.innerHTML = "";
-
-    if (!matches.length) {
-
-      list.style.display = "none";
-      return;
-    }
-
-    matches
-      .slice(0, 8)
-      .forEach(name => {
-
-        const div =
-          document.createElement(
-            "div"
-          );
-
-        div.className =
-          "suggestion";
-
-        div.textContent = name;
-
-        div.onclick = () => {
-
-          box.value = name;
-
-          list.style.display =
-            "none";
-
-          const f = find(name);
-
-          if (f) zoomTo(f);
-        };
-
-        list.appendChild(div);
-      });
-
-    list.style.display = "block";
-  }
-
-  box.addEventListener(
-    "input",
-
-    () => {
-
-      const q =
-        normalize(box.value)
-          .toLowerCase();
-
-      if (!q) {
-
-        list.style.display =
-          "none";
-
-        return;
-      }
-
-      show(
-
-        getCountries().filter(
-          c =>
-
-            c
-              .toLowerCase()
-              .includes(q)
-        )
-      );
-    }
-  );
-}
-
-
-// =========================
-// CLICK
-// =========================
-
-function setupClick() {
-
-  map.on(
-    "click",
-
-    "countries-fill",
-
-    e => {
-
-      zoomTo(
-        e.features[0]
-      );
-    }
-  );
-
-  map.on(
-    "mouseenter",
-
-    "countries-fill",
-
-    () => {
-
-      map.getCanvas().style.cursor =
-        "pointer";
-    }
-  );
-
-  map.on(
-    "mouseleave",
-
-    "countries-fill",
-
-    () => {
-
-      map.getCanvas().style.cursor =
-        "";
-    }
-  );
-}
-
-
-// =========================
-// NEWS
-// =========================
-
-const feeds = [
-
-  "https://feeds.bbci.co.uk/news/world/rss.xml",
-
-  "https://rss.cnn.com/rss/edition_world.rss",
-
-  "https://www.reuters.com/rssFeed/worldNews"
-];
-
-const proxy =
-  "https://api.rss2json.com/v1/api.json?rss_url=";
-
-async function loadNews() {
-
-  const panel =
-    document.getElementById(
-      "newsPanel"
-    );
-
-  panel.innerHTML =
-    "<h3>LIVE NEWS</h3>";
-
-  let all = [];
-
-  for (const f of feeds) {
-
-    try {
-
-      const res =
-        await fetch(
-          proxy +
-          encodeURIComponent(f)
-        );
-
-      const data =
-        await res.json();
-
-      if (data.items) {
-
-        all.push(
-
-          ...data.items.map(i => ({
-
-            title: i.title,
-
-            link: i.link,
-
-            source:
-              data.feed?.title ||
-              "News"
-          }))
-        );
-      }
-
-    } catch {}
-  }
-
-  all
-    .slice(0, 15)
-    .forEach(a => {
-
-      const div =
-        document.createElement(
-          "div"
-        );
-
-      div.className =
-        "news-item";
-
-      div.innerHTML = `
-
-        <div class="source-label">
-          ${a.source}
-        </div>
-
-        <a
-          href="${a.link}"
-          target="_blank"
-        >
-          ${a.title}
-        </a>
-      `;
-
-      panel.appendChild(div);
-    });
+      "coalesce",
+      ["get", "name"],
+      ["get", "ADMIN"],
+      ["get", "NAME"]
+    ],
+    name
+  ]);
 }
 
 
@@ -624,107 +237,57 @@ map.on("load", async () => {
 
   geojsonData = await res.json();
 
-  map.addSource(
-    "countries",
-
-    {
-      type: "geojson",
-      data: geojsonData
-    }
-  );
+  map.addSource("countries", {
+    type: "geojson",
+    data: geojsonData
+  });
 
   map.addLayer({
-
     id: "countries-fill",
-
     type: "fill",
-
     source: "countries",
-
     paint: {
-
-      "fill-color":
-        "#2a2a2a",
-
+      "fill-color": "#2a2a2a",
       "fill-opacity": 0.6
     }
   });
 
   map.addLayer({
-
     id: "countries-border",
-
     type: "line",
-
     source: "countries",
-
     paint: {
-
       "line-color": "#555",
-
       "line-width": 0.7
     }
   });
 
   map.addLayer({
-
     id: "countries-highlight",
-
     type: "line",
-
     source: "countries",
-
     paint: {
-
       "line-color": "#00ffff",
-
       "line-width": 3
     },
-
-    filter: [
-      "==",
-      "ADMIN",
-      ""
-    ]
+    filter: ["==", "ADMIN", ""]
   });
-
-  setupSearch();
-
-  setupClick();
-
-  loadNews();
 
   loadAdvisories();
 
-  setInterval(
-    loadNews,
-    60000
-  );
-
-  setInterval(
-    loadAdvisories,
-    86400000
-  );
+  setInterval(loadAdvisories, 86400000);
 });
 
 
 // =========================
-// TOGGLE
+// TOGGLE (if you have checkbox)
 // =========================
 
-document
-  .getElementById(
-    "colorToggle"
-  )
+const toggle = document.getElementById("colorToggle");
 
-  .addEventListener(
-    "change",
-
-    e => {
-
-      colorsEnabled =
-        e.target.checked;
-
-      applyColors();
-    }
-  );
+if (toggle) {
+  toggle.addEventListener("change", (e) => {
+    colorsEnabled = e.target.checked;
+    applyColors();
+  });
+}
