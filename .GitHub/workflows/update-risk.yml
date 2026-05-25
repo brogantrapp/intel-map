@@ -1,19 +1,24 @@
-name: Update Risk Map Daily
+name: Update Risk JSON Daily
 
 on:
   schedule:
-    - cron: "0 12 * * *"  # once per day (UTC)
+    - cron: "0 12 * * *"   # once per day
   workflow_dispatch:
 
 jobs:
-  update:
+  build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Fetch advisory data
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Fetch travel advisory data
         run: |
           curl -s "https://travel.state.gov/content/travel/en/traveladvisories/traveladvisories.json" > raw.json
 
@@ -22,29 +27,69 @@ jobs:
           node -e "
           const fs = require('fs');
 
-          const data = JSON.parse(fs.readFileSync('raw.json','utf8'));
+          let raw = {};
 
-          const list = data.data || data.advisories || data || [];
+          try {
+            raw = JSON.parse(fs.readFileSync('raw.json', 'utf8'));
+          } catch (e) {
+            console.log('Failed to parse raw JSON');
+            process.exit(1);
+          }
 
-          const normalize = s => (s||'').toLowerCase().trim();
+          const list =
+            raw.data ||
+            raw.advisories ||
+            raw.countries ||
+            [];
 
           const risk = {};
 
-          list.forEach(i => {
-            const country = normalize(i.country || i.name || i.country_name);
-            const level = Number(i.advisoryLevel || i.level || i.risk_level);
-            if (country && level >= 1 && level <= 4) {
-              risk[country] = level;
+          const normalize = (s) =>
+            (s || '')
+              .toString()
+              .toLowerCase()
+              .trim();
+
+          list.forEach(item => {
+
+            const country =
+              item.country ||
+              item.name ||
+              item.country_name;
+
+            const level =
+              item.advisoryLevel ||
+              item.level ||
+              item.risk_level;
+
+            if (!country || !level) return;
+
+            const key = country.trim();
+
+            const val = Number(level);
+
+            if (val >= 1 && val <= 4) {
+              risk[key] = val;
             }
           });
 
-          fs.writeFileSync('data/risk.json', JSON.stringify(risk, null, 2));
-          "
+          fs.mkdirSync('data', { recursive: true });
 
-      - name: Commit changes
+          fs.writeFileSync(
+            'data/risk.json',
+            JSON.stringify(risk, null, 2)
+          );
+
+          console.log('Generated risk.json:', risk);
+          "
+      
+      - name: Commit and push changes
         run: |
-          git config --global user.name "auto-bot"
+          git config --global user.name "risk-bot"
           git config --global user.email "bot@users.noreply.github.com"
+
           git add data/risk.json
-          git commit -m "auto update risk map" || echo "no changes"
+
+          git commit -m "auto-update risk data" || echo "no changes"
+
           git push
