@@ -1,12 +1,14 @@
-
 // =========================
-// MAP SETUP
+// MAP
 // =========================
 
 const map = new maplibregl.Map({
   container: "map",
-  style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-  center: [0, 20],
+
+  style:
+    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+
+  center: [10, 25],
   zoom: 2
 });
 
@@ -14,7 +16,7 @@ map.addControl(new maplibregl.NavigationControl());
 
 
 // =========================
-// EST CLOCK + DATE
+// CLOCK
 // =========================
 
 function updateClock() {
@@ -22,14 +24,12 @@ function updateClock() {
   const now = new Date();
 
   const est = new Date(
-    now.toLocaleString("en-US", { timeZone: "America/New_York" })
+    now.toLocaleString("en-US", {
+      timeZone: "America/New_York"
+    })
   );
 
-  const time = est.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  });
+  const time = est.toLocaleTimeString("en-US");
 
   const date = est.toLocaleDateString("en-US", {
     weekday: "short",
@@ -39,22 +39,34 @@ function updateClock() {
   });
 
   document.getElementById("topbar").innerHTML =
-    `🕒 EST Time: ${time} | 📅 ${date}`;
+    ` EST | ${time} |  ${date}`;
 }
 
-setInterval(updateClock, 1000);
 updateClock();
+
+setInterval(updateClock, 1000);
 
 
 // =========================
-// NEWS SYSTEM (LIVE + FALLBACK SAFE)
+// NEWS
 // =========================
 
 const fallbackNews = [
-  { source: "BBC", title: "Global news update", url: "https://www.bbc.com/news" },
-  { source: "CNN", title: "Breaking world headlines", url: "https://www.cnn.com" },
-  { source: "Reuters", title: "Global economic updates", url: "https://www.reuters.com" },
-  { source: "NY Times", title: "Top world stories", url: "https://www.nytimes.com" }
+  {
+    source: "BBC",
+    title: "BBC World News",
+    url: "https://www.bbc.com/news"
+  },
+  {
+    source: "CNN",
+    title: "CNN Global Headlines",
+    url: "https://www.cnn.com"
+  },
+  {
+    source: "Reuters",
+    title: "Reuters World Updates",
+    url: "https://www.reuters.com"
+  }
 ];
 
 async function loadNews() {
@@ -64,34 +76,30 @@ async function loadNews() {
   try {
 
     const res = await fetch(
-      "https://api.gdeltproject.org/api/v2/doc/doc?format=json&maxrecords=10&query=bbc%20OR%20cnn%20OR%20reuters%20OR%20nytimes"
+      "https://api.gdeltproject.org/api/v2/doc/doc?format=json&maxrecords=8&query=world"
     );
 
     const data = await res.json();
 
-    const articles = data.articles || data.result || [];
+    const articles = data.articles || fallbackNews;
 
-    panel.innerHTML = "<h3>📰 Live News</h3>";
+    panel.innerHTML = "<h3> Live News</h3>";
 
-    const newsToShow = articles.length ? articles : fallbackNews;
-
-    newsToShow.forEach(a => {
-
-      const title = a.title || "News Update";
-      const url = a.url || "#";
-      const source = a.sourceCountry || a.source || "Global";
+    articles.forEach(article => {
 
       const div = document.createElement("div");
+
       div.className = "news-item";
 
       div.innerHTML = `
-        <div class="source-label">${source}</div>
-        <div style="margin-top:5px;">
-          <a href="${url}" target="_blank"
-             style="color:#00ffff; text-decoration:none;">
-            ${title}
-          </a>
+        <div class="source-label">
+          ${article.sourceCountry || article.source || "Global"}
         </div>
+
+        <a href="${article.url || "#"}"
+           target="_blank">
+          ${article.title || "News Update"}
+        </a>
       `;
 
       panel.appendChild(div);
@@ -100,24 +108,25 @@ async function loadNews() {
 
   } catch (err) {
 
-    console.log("News error:", err);
+    console.log("News failed:", err);
 
-    const panel = document.getElementById("newsPanel");
-    panel.innerHTML = "<h3>📰 Offline News</h3>";
+    panel.innerHTML = "<h3>📰 Backup News</h3>";
 
-    fallbackNews.forEach(a => {
+    fallbackNews.forEach(article => {
 
       const div = document.createElement("div");
+
       div.className = "news-item";
 
       div.innerHTML = `
-        <div class="source-label">${a.source}</div>
-        <div style="margin-top:5px;">
-          <a href="${a.url}" target="_blank"
-             style="color:#00ffff; text-decoration:none;">
-            ${a.title}
-          </a>
+        <div class="source-label">
+          ${article.source}
         </div>
+
+        <a href="${article.url}"
+           target="_blank">
+          ${article.title}
+        </a>
       `;
 
       panel.appendChild(div);
@@ -128,48 +137,42 @@ async function loadNews() {
 }
 
 loadNews();
+
 setInterval(loadNews, 60000);
 
 
 // =========================
-// COUNTRY RISK SYSTEM
-// =========================
-
-const countryRisk = {
-  "United States of America": 2,
-  "Canada": 1,
-  "United Kingdom": 1,
-  "France": 1,
-  "Germany": 1,
-  "Russia": 3,
-  "Ukraine": 3,
-  "China": 2,
-  "Iran": 3,
-  "Israel": 3,
-  "India": 2,
-  "Brazil": 2
-};
-
-function getColor(level) {
-
-  if (level === 1) return "#00ff66"; // green
-  if (level === 2) return "#ffcc00"; // yellow
-  if (level === 3) return "#ff3333"; // red
-
-  return "#2b2b2b";
-}
-
-
-// =========================
-// COUNTRY MAP (REAL BORDERS)
+// COUNTRY COLORS
 // =========================
 
 const countriesUrl =
   "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json";
 
+const riskLevels = {
+  "Russia": "#ff3333",
+  "Ukraine": "#ff3333",
+  "Iran": "#ff3333",
+
+  "China": "#ffcc00",
+  "United States of America": "#ffcc00",
+  "India": "#ffcc00",
+  "Brazil": "#ffcc00",
+
+  "Canada": "#00ff66",
+  "France": "#00ff66",
+  "Germany": "#00ff66",
+  "United Kingdom": "#00ff66"
+};
+
+
+// =========================
+// LOAD COUNTRIES
+// =========================
+
 async function loadCountries() {
 
   const res = await fetch(countriesUrl);
+
   const geojson = await res.json();
 
   map.addSource("countries", {
@@ -178,28 +181,35 @@ async function loadCountries() {
   });
 
   map.addLayer({
-    id: "country-fill",
+    id: "country-fills",
     type: "fill",
     source: "countries",
+
     paint: {
+
       "fill-color": [
-        "case",
 
-        ["==", ["get", "name"], "United States of America"], getColor(2),
-        ["==", ["get", "name"], "Canada"], getColor(1),
-        ["==", ["get", "name"], "United Kingdom"], getColor(1),
-        ["==", ["get", "name"], "France"], getColor(1),
-        ["==", ["get", "name"], "Germany"], getColor(1),
-        ["==", ["get", "name"], "Russia"], getColor(3),
-        ["==", ["get", "name"], "Ukraine"], getColor(3),
-        ["==", ["get", "name"], "China"], getColor(2),
-        ["==", ["get", "name"], "Iran"], getColor(3),
-        ["==", ["get", "name"], "Israel"], getColor(3),
-        ["==", ["get", "name"], "India"], getColor(2),
-        ["==", ["get", "name"], "Brazil"], getColor(2),
+        "match",
 
-        "#2b2b2b"
+        ["get", "name"],
+
+        "Russia", "#ff3333",
+        "Ukraine", "#ff3333",
+        "Iran", "#ff3333",
+
+        "China", "#ffcc00",
+        "United States of America", "#ffcc00",
+        "India", "#ffcc00",
+        "Brazil", "#ffcc00",
+
+        "Canada", "#00ff66",
+        "France", "#00ff66",
+        "Germany", "#00ff66",
+        "United Kingdom", "#00ff66",
+
+        "#1c1c1c"
       ],
+
       "fill-opacity": 0.55
     }
   });
@@ -208,10 +218,11 @@ async function loadCountries() {
     id: "country-borders",
     type: "line",
     source: "countries",
+
     paint: {
-      "line-color": "#ffffff",
-      "line-width": 0.6,
-      "line-opacity": 0.25
+      "line-color": "#666",
+      "line-width": 0.7,
+      "line-opacity": 0.5
     }
   });
 
@@ -219,37 +230,11 @@ async function loadCountries() {
 
 
 // =========================
-// DAILY REFRESH SYSTEM
-// =========================
-
-function scheduleDailyRefresh() {
-
-  const now = new Date();
-  const next = new Date();
-  next.setHours(24, 0, 0, 0);
-
-  const ms = next - now;
-
-  setTimeout(() => {
-
-    console.log("Daily refresh running...");
-
-    loadCountries();
-
-    scheduleDailyRefresh();
-
-  }, ms);
-
-}
-
-
-// =========================
-// INIT
+// START
 // =========================
 
 map.on("load", () => {
 
   loadCountries();
-  scheduleDailyRefresh();
 
 });
