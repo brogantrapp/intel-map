@@ -10,6 +10,7 @@ html, body {
   color: #d4d4d4;
 }
 
+/* TOP BAR */
 #topbar {
   position: absolute;
   top: 0;
@@ -31,12 +32,16 @@ html, body {
   z-index: 10;
 }
 
-/* SEARCH BOX */
+/* SEARCH */
+#searchWrapper {
+  position: relative;
+}
+
 #searchBox {
   padding: 5px 10px;
 
   background: #1a1a1a;
-  color: #fff;
+  color: white;
 
   border: 1px solid #333;
   border-radius: 5px;
@@ -44,18 +49,40 @@ html, body {
   outline: none;
 }
 
-#searchBox::placeholder {
-  color: #777;
+/* AUTOCOMPLETE BOX */
+#suggestions {
+  position: absolute;
+  top: 32px;
+  left: 0;
+
+  width: 220px;
+
+  background: #111;
+  border: 1px solid #333;
+
+  max-height: 200px;
+  overflow-y: auto;
+
+  display: none;
+  z-index: 999;
+}
+
+.suggestion {
+  padding: 8px;
+  cursor: pointer;
+  font-size: 13px;
+
+  border-bottom: 1px solid #222;
+}
+
+.suggestion:hover {
+  background: #1e1e1e;
 }
 
 /* TOGGLE */
 .toggle {
   font-size: 12px;
   color: #ccc;
-}
-
-.toggle input {
-  margin-left: 6px;
 }
 
 /* LAYOUT */
@@ -81,12 +108,13 @@ html, body {
   padding: 12px;
 }
 
-/* NEWS ITEMS */
 .news-item {
   background: #151515;
   border: 1px solid #222;
+
   padding: 10px;
   margin-bottom: 10px;
+
   border-radius: 6px;
 }
 
