@@ -10,7 +10,6 @@ html, body {
   color: #d4d4d4;
 }
 
-/* TOP BAR */
 #topbar {
   position: absolute;
   top: 0;
@@ -23,20 +22,34 @@ html, body {
   justify-content: center;
   align-items: center;
 
-  background: #111;
+  gap: 20px;
 
+  background: #111;
   border-bottom: 1px solid #222;
 
   font-size: 14px;
-
   z-index: 10;
+}
+
+/* SEARCH BOX */
+#searchBox {
+  padding: 5px 10px;
+
+  background: #1a1a1a;
+  color: #fff;
+
+  border: 1px solid #333;
+  border-radius: 5px;
+
+  outline: none;
+}
+
+#searchBox::placeholder {
+  color: #777;
 }
 
 /* TOGGLE */
 .toggle {
-  position: absolute;
-  right: 15px;
-
   font-size: 12px;
   color: #ccc;
 }
@@ -68,11 +81,7 @@ html, body {
   padding: 12px;
 }
 
-#newsPanel h3 {
-  margin-top: 0;
-}
-
-/* NEWS ITEM */
+/* NEWS ITEMS */
 .news-item {
   background: #151515;
   border: 1px solid #222;
@@ -84,10 +93,6 @@ html, body {
 .news-item a {
   color: #d4d4d4;
   text-decoration: none;
-}
-
-.news-item a:hover {
-  text-decoration: underline;
 }
 
 .source-label {
