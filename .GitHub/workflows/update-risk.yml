@@ -1,4 +1,4 @@
-name: Build Global Risk Map (Auto Full World)
+name: Build Global Risk Map
 
 on:
   schedule:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Setup Node
@@ -18,90 +18,97 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Build full world risk map
+      - name: Build full world risk.json
         run: |
           node -e "
           const fs = require('fs');
 
-          // -----------------------------
-          // 1. LOAD REAL WORLD MAP (ALL COUNTRIES)
-          // -----------------------------
-          const geo = await fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
-            .then(r => r.json());
+          async function run() {
 
-          const features = geo.features;
+            // -----------------------------
+            // 1. LOAD WORLD GEOJSON (SOURCE OF TRUTH)
+            // -----------------------------
+            const geo = await fetch(
+              'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json'
+            ).then(r => r.json());
 
-          const risk = {};
+            const risk = {};
 
-          // EVERY COUNTRY GETS DEFAULT VALUE (THIS FIXES YOUR PROBLEM)
-          for (const f of features) {
-            const name = f.properties.name;
-            if (name) risk[name] = 1;
-          }
+            // EVERY COUNTRY DEFAULTS TO SAFE (LEVEL 1)
+            geo.features.forEach(f => {
+              const name = f.properties.name;
+              if (name) risk[name] = 1;
+            });
 
-          console.log('Countries loaded:', Object.keys(risk).length);
+            console.log('Countries loaded:', Object.keys(risk).length);
 
-          // -----------------------------
-          // 2. LOAD STATE DEPT DATA
-          // -----------------------------
-          let raw = {};
+            // -----------------------------
+            // 2. LOAD STATE DEPT DATA
+            // -----------------------------
+            let raw = {};
 
-          try {
-            raw = JSON.parse(fs.readFileSync('raw.json', 'utf8'));
-          } catch (e) {
-            console.log('State Dept load failed');
-          }
-
-          const list =
-            raw.data ||
-            raw.advisories ||
-            raw.countries ||
-            [];
-
-          // -----------------------------
-          // 3. APPLY OVERRIDES
-          // -----------------------------
-          const normalize = s => (s || '').toString().trim();
-
-          list.forEach(item => {
-
-            const country =
-              item.country ||
-              item.name ||
-              item.country_name;
-
-            const level =
-              item.advisoryLevel ||
-              item.level ||
-              item.risk_level;
-
-            if (!country || !level) return;
-
-            const name = normalize(country);
-
-            if (risk[name]) {
-              risk[name] = Number(level);
+            try {
+              raw = JSON.parse(fs.readFileSync('raw.json', 'utf8'));
+            } catch (e) {
+              console.log('⚠️ State Dept data missing or invalid');
             }
-          });
 
-          // -----------------------------
-          // 4. SAVE FILE
-          // -----------------------------
-          fs.mkdirSync('data', { recursive: true });
+            const list =
+              raw.data ||
+              raw.advisories ||
+              raw.countries ||
+              [];
 
-          fs.writeFileSync(
-            'data/risk.json',
-            JSON.stringify(risk, null, 2)
-          );
+            // -----------------------------
+            // 3. APPLY OVERRIDES
+            // -----------------------------
+            const normalize = s =>
+              (s || '')
+                .toString()
+                .trim();
 
-          console.log('✅ Full world risk map generated');
+            list.forEach(item => {
+
+              const country =
+                item.country ||
+                item.name ||
+                item.country_name;
+
+              const level =
+                item.advisoryLevel ||
+                item.level ||
+                item.risk_level;
+
+              if (!country || !level) return;
+
+              const name = normalize(country);
+
+              if (risk[name] !== undefined) {
+                risk[name] = Number(level);
+              }
+            });
+
+            // -----------------------------
+            // 4. WRITE OUTPUT
+            // -----------------------------
+            fs.mkdirSync('data', { recursive: true });
+
+            fs.writeFileSync(
+              'data/risk.json',
+              JSON.stringify(risk, null, 2)
+            );
+
+            console.log('✅ Global risk map built');
+          }
+
+          run();
           "
       
-      - name: Commit
+      - name: Commit changes
         run: |
           git config --global user.name "risk-bot"
           git config --global user.email "bot@users.noreply.github.com"
 
           git add data/risk.json
-          git commit -m "full world risk update" || echo "no changes"
+          git commit -m "update global risk map" || echo "no changes"
           git push
