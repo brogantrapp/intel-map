@@ -1,8 +1,8 @@
-name: Update Risk JSON Daily
+name: Update Global Risk Map
 
 on:
   schedule:
-    - cron: "0 12 * * *"   # once per day
+    - cron: "0 12 * * *"   # daily
   workflow_dispatch:
 
 jobs:
@@ -18,22 +18,78 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Fetch travel advisory data
+      - name: Fetch State Dept data
         run: |
           curl -s "https://travel.state.gov/content/travel/en/traveladvisories/traveladvisories.json" > raw.json
 
-      - name: Generate risk.json
+      - name: Build full world risk.json
         run: |
           node -e "
           const fs = require('fs');
 
+          // -----------------------------
+          // 1. FULL WORLD BASE MAP
+          // -----------------------------
+          const risk = {
+
+            // North America
+            'United States of America': 1,
+            'Canada': 1,
+            'Mexico': 1,
+
+            // South America
+            'Brazil': 1,
+            'Argentina': 1,
+            'Chile': 1,
+            'Colombia': 1,
+            'Peru': 1,
+            'Venezuela': 1,
+
+            // Europe
+            'United Kingdom': 1,
+            'France': 1,
+            'Germany': 1,
+            'Italy': 1,
+            'Spain': 1,
+            'Portugal': 1,
+            'Ukraine': 1,
+            'Russia': 1,
+            'Poland': 1,
+
+            // Africa
+            'South Africa': 1,
+            'Nigeria': 1,
+            'Egypt': 1,
+            'Kenya': 1,
+            'Ethiopia': 1,
+            'Morocco': 1,
+            'Algeria': 1,
+
+            // Asia
+            'China': 1,
+            'India': 1,
+            'Japan': 1,
+            'South Korea': 1,
+            'North Korea': 1,
+            'Indonesia': 1,
+            'Pakistan': 1,
+            'Iran': 1,
+            'Afghanistan': 1,
+
+            // Oceania
+            'Australia': 1,
+            'New Zealand': 1
+          };
+
+          // -----------------------------
+          // 2. LOAD STATE DEPT DATA
+          // -----------------------------
           let raw = {};
 
           try {
             raw = JSON.parse(fs.readFileSync('raw.json', 'utf8'));
           } catch (e) {
-            console.log('Failed to parse raw JSON');
-            process.exit(1);
+            console.log('Failed to parse State Dept data');
           }
 
           const list =
@@ -42,12 +98,12 @@ jobs:
             raw.countries ||
             [];
 
-          const risk = {};
-
+          // -----------------------------
+          // 3. APPLY OVERRIDES
+          // -----------------------------
           const normalize = (s) =>
             (s || '')
               .toString()
-              .toLowerCase()
               .trim();
 
           list.forEach(item => {
@@ -64,15 +120,17 @@ jobs:
 
             if (!country || !level) return;
 
-            const key = country.trim();
-
+            const name = normalize(country);
             const val = Number(level);
 
             if (val >= 1 && val <= 4) {
-              risk[key] = val;
+              risk[name] = val;
             }
           });
 
+          // -----------------------------
+          // 4. WRITE FILE
+          // -----------------------------
           fs.mkdirSync('data', { recursive: true });
 
           fs.writeFileSync(
@@ -80,16 +138,16 @@ jobs:
             JSON.stringify(risk, null, 2)
           );
 
-          console.log('Generated risk.json:', risk);
+          console.log('✅ Full world risk.json generated');
           "
       
-      - name: Commit and push changes
+      - name: Commit and push
         run: |
           git config --global user.name "risk-bot"
           git config --global user.email "bot@users.noreply.github.com"
 
           git add data/risk.json
 
-          git commit -m "auto-update risk data" || echo "no changes"
+          git commit -m "auto update global risk map" || echo "no changes"
 
           git push
