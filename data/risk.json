@@ -1,20 +1,6 @@
 {
-  "russia": 4,
-  "ukraine": 4,
-  "iran": 4,
-  "north korea": 4,
-  "syria": 4,
-
-  "china": 3,
-  "mexico": 3,
-  "turkey": 3,
-
-  "india": 2,
-  "brazil": 2,
-
-  "france": 1,
-  "germany": 1,
-  "united kingdom": 1,
-  "japan": 1,
-  "canada": 1
+  "Russia": 4,
+  "Ukraine": 4,
+  "Iran": 4,
+  "France": 1
 }
