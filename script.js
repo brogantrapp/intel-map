@@ -26,81 +26,14 @@ function updateClock() {
     })
   );
 
-  const time = est.toLocaleTimeString("en-US");
-  const date = est.toLocaleDateString("en-US", {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  });
-
   document.getElementById("clockText").textContent =
-    `EST ${time} | ${date}`;
+    est.toLocaleTimeString("en-US") +
+    " | " +
+    est.toLocaleDateString("en-US");
 }
 
 setInterval(updateClock, 1000);
 updateClock();
-
-
-
-// =========================
-// SMART COUNTRY SEARCH (FULL WORLD)
-// =========================
-
-function setupSearch() {
-
-  const box = document.getElementById("searchBox");
-
-  box.addEventListener("keydown", (e) => {
-
-    if (e.key !== "Enter") return;
-
-    const query = box.value.toLowerCase().trim();
-
-    const features = map.querySourceFeatures("countries");
-
-    let match = null;
-
-    for (const f of features) {
-
-      const name = (f.properties.name || "").toLowerCase();
-
-      if (name.includes(query)) {
-        match = f;
-        break;
-      }
-    }
-
-    if (!match) {
-      alert("Country not found");
-      return;
-    }
-
-    // get bounding box of country
-    const coords = match.geometry.coordinates;
-
-    let bounds = new maplibregl.LngLatBounds();
-
-    function addCoords(c) {
-
-      if (typeof c[0] === "number") {
-        bounds.extend(c);
-      } else {
-        c.forEach(addCoords);
-      }
-    }
-
-    addCoords(coords);
-
-    map.fitBounds(bounds, {
-      padding: 40,
-      maxZoom: 5
-    });
-
-  });
-}
-
-setupSearch();
 
 
 // =========================
@@ -120,7 +53,6 @@ function updateColors() {
     "countries-fill",
     "fill-color",
     colorsEnabled ? [
-
       "match",
       ["get", "name"],
 
@@ -138,14 +70,123 @@ function updateColors() {
       "United Kingdom", "#1f5a3a",
 
       "#1c1c1c"
-
     ] : "#2b2b2b"
   );
 }
 
 
 // =========================
-// NEWS (SAFE RSS)
+// SEARCH + AUTOCOMPLETE
+// =========================
+
+function setupSearch() {
+
+  const box = document.getElementById("searchBox");
+  const list = document.getElementById("suggestions");
+
+  function getCountries() {
+
+    const features = map.querySourceFeatures("countries");
+
+    const names = new Set();
+
+    for (const f of features) {
+      if (f.properties?.name) names.add(f.properties.name);
+    }
+
+    return Array.from(names).sort();
+  }
+
+  function zoom(name) {
+
+    const features = map.querySourceFeatures("countries");
+
+    const match = features.find(f =>
+      f.properties?.name?.toLowerCase() === name.toLowerCase()
+    );
+
+    if (!match) return;
+
+    const bounds = new maplibregl.LngLatBounds();
+
+    function walk(coords) {
+      if (typeof coords[0] === "number") {
+        bounds.extend(coords);
+      } else {
+        coords.forEach(walk);
+      }
+    }
+
+    walk(match.geometry.coordinates);
+
+    map.fitBounds(bounds, {
+      padding: 80,
+      maxZoom: 5
+    });
+  }
+
+  function show(matches) {
+
+    list.innerHTML = "";
+
+    if (!matches.length) {
+      list.style.display = "none";
+      return;
+    }
+
+    matches.slice(0, 8).forEach(name => {
+
+      const div = document.createElement("div");
+      div.className = "suggestion";
+      div.textContent = name;
+
+      div.onclick = () => {
+        box.value = name;
+        list.style.display = "none";
+        zoom(name);
+      };
+
+      list.appendChild(div);
+    });
+
+    list.style.display = "block";
+  }
+
+  box.addEventListener("input", () => {
+
+    const q = box.value.toLowerCase().trim();
+
+    if (!q) {
+      list.style.display = "none";
+      return;
+    }
+
+    const countries = getCountries();
+
+    show(countries.filter(c =>
+      c.toLowerCase().includes(q)
+    ));
+  });
+
+  box.addEventListener("keydown", (e) => {
+
+    if (e.key === "Enter") {
+      zoom(box.value.trim());
+      list.style.display = "none";
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+
+    if (!document.getElementById("searchWrapper").contains(e.target)) {
+      list.style.display = "none";
+    }
+  });
+}
+
+
+// =========================
+// NEWS (SIMPLE SAFE FEED)
 // =========================
 
 const feeds = [
@@ -154,7 +195,7 @@ const feeds = [
   "https://www.reuters.com/rssFeed/worldNews"
 ];
 
-const rssProxy = "https://api.rss2json.com/v1/api.json?rss_url=";
+const proxy = "https://api.rss2json.com/v1/api.json?rss_url=";
 
 async function loadNews() {
 
@@ -164,11 +205,11 @@ async function loadNews() {
 
   let all = [];
 
-  for (const feed of feeds) {
+  for (const f of feeds) {
 
     try {
 
-      const res = await fetch(rssProxy + encodeURIComponent(feed));
+      const res = await fetch(proxy + encodeURIComponent(f));
       const data = await res.json();
 
       if (data.items) {
@@ -180,9 +221,7 @@ async function loadNews() {
         })));
       }
 
-    } catch (e) {
-      console.log("Feed failed:", feed);
-    }
+    } catch {}
   }
 
   all.slice(0, 12).forEach(a => {
@@ -199,9 +238,6 @@ async function loadNews() {
 
   });
 }
-
-loadNews();
-setInterval(loadNews, 60000);
 
 
 // =========================
@@ -242,4 +278,7 @@ map.on("load", async () => {
   });
 
   updateColors();
+  setupSearch();
+  loadNews();
+  setInterval(loadNews, 60000);
 });
