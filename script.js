@@ -1,4 +1,3 @@
-
 // =========================
 // MAP INIT
 // =========================
@@ -15,6 +14,9 @@ map.addControl(new maplibregl.NavigationControl());
 let geojsonData = null;
 let colorsEnabled = true;
 
+// 🌍 NEW: live risk map
+let riskMap = {};
+
 
 // =========================
 // HOME BUTTON (FULL WORLD VIEW)
@@ -25,7 +27,6 @@ class HomeControl {
 
     this.map = map;
     this.container = document.createElement("div");
-
     this.container.className = "maplibregl-ctrl maplibregl-ctrl-group";
 
     const btn = document.createElement("button");
@@ -89,12 +90,10 @@ updateClock();
 // =========================
 
 const aliases = {
-
   "usa": "United States of America",
   "us": "United States of America",
   "uk": "United Kingdom",
   "britain": "United Kingdom",
-
   "russia": "Russia",
   "drc": "Democratic Republic of the Congo",
   "congo": "Democratic Republic of the Congo"
@@ -102,38 +101,78 @@ const aliases = {
 
 
 // =========================
-// COLORS
+// 🌍 TRAVEL ADVISORY SYSTEM
 // =========================
 
-function getColorExpr() {
+function levelToColor(level) {
 
-  return [
-    "match",
-    ["get", "name"],
+  switch (level) {
+    case 1: return "#2ecc71"; // safe
+    case 2: return "#f1c40f"; // caution
+    case 3: return "#e67e22"; // reconsider travel
+    case 4: return "#e74c3c"; // do not travel
+    default: return "#1c1c1c";
+  }
+}
 
-    // RUSSIA FIX (both dataset variants)
-    "Russia", "#7a1f1f",
-    "Russian Federation", "#7a1f1f",
 
-    "Ukraine", "#7a1f1f",
-    "Iran", "#7a1f1f",
+// fetch + build risk map
+async function loadAdvisories() {
 
-    "China", "#8a6a1f",
-    "United States of America", "#8a6a1f",
-    "India", "#8a6a1f",
+  try {
 
-    "Canada", "#1f5a3a",
-    "France", "#1f5a3a",
-    "Germany", "#1f5a3a",
-    "United Kingdom", "#1f5a3a",
+    const res = await fetch(
+      "https://travel.state.gov/content/travel/en/traveladvisories/traveladvisories.json"
+    );
 
-    "#1c1c1c"
-  ];
+    const data = await res.json();
+
+    const mapObj = {};
+
+    (data.data || data || []).forEach(item => {
+
+      const name = (item.country || "").toLowerCase().trim();
+      const level = parseInt(item.advisoryLevel);
+
+      if (name && level) {
+        mapObj[name] = level;
+      }
+    });
+
+    riskMap = mapObj;
+
+    applyColors();
+
+  } catch (e) {
+    console.log("Advisory load failed:", e);
+  }
 }
 
 
 // =========================
-// APPLY COLORS (TOGGLE SAFE)
+// COLORS (NOW LIVE DATA BASED)
+// =========================
+
+function getColorExpr() {
+
+  const expr = [
+    "match",
+    ["downcase", ["get", "name"]]
+  ];
+
+  for (const [country, level] of Object.entries(riskMap)) {
+
+    expr.push(country, levelToColor(level));
+  }
+
+  expr.push("#1c1c1c");
+
+  return expr;
+}
+
+
+// =========================
+// APPLY COLORS
 // =========================
 
 function applyColors() {
@@ -164,16 +203,12 @@ function applyColors() {
 
 function highlight(name) {
 
-  map.setFilter("countries-highlight", [
-    "==",
-    "name",
-    name
-  ]);
+  map.setFilter("countries-highlight", ["==", "name", name]);
 }
 
 
 // =========================
-// ZOOM FUNCTION
+// ZOOM
 // =========================
 
 function zoomTo(feature) {
@@ -181,7 +216,6 @@ function zoomTo(feature) {
   const bounds = new maplibregl.LngLatBounds();
 
   function walk(c) {
-
     if (typeof c[0] === "number") {
       bounds.extend(c);
     } else {
@@ -202,7 +236,7 @@ function zoomTo(feature) {
 
 
 // =========================
-// SEARCH + AUTOCOMPLETE
+// SEARCH
 // =========================
 
 function setupSearch() {
@@ -258,10 +292,7 @@ function setupSearch() {
 
     const q = normalize(box.value).toLowerCase();
 
-    if (!q) {
-      list.style.display = "none";
-      return;
-    }
+    if (!q) return list.style.display = "none";
 
     show(getCountries().filter(c =>
       c.toLowerCase().includes(q)
@@ -279,13 +310,6 @@ function setupSearch() {
       list.style.display = "none";
     }
   });
-
-  document.addEventListener("click", (e) => {
-
-    if (!document.getElementById("searchWrapper").contains(e.target)) {
-      list.style.display = "none";
-    }
-  });
 }
 
 
@@ -297,14 +321,6 @@ function setupClick() {
 
   map.on("click", "countries-fill", (e) => {
     zoomTo(e.features[0]);
-  });
-
-  map.on("mouseenter", "countries-fill", () => {
-    map.getCanvas().style.cursor = "pointer";
-  });
-
-  map.on("mouseleave", "countries-fill", () => {
-    map.getCanvas().style.cursor = "";
   });
 }
 
@@ -417,7 +433,10 @@ map.on("load", async () => {
   setupClick();
   applyColors();
   loadNews();
+  loadAdvisories();
+
   setInterval(loadNews, 60000);
+  setInterval(loadAdvisories, 24 * 60 * 60 * 1000);
 });
 
 
