@@ -1,3 +1,4 @@
+
 // =========================
 // MAP INIT
 // =========================
@@ -12,8 +13,8 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl());
 
 let geojsonData = null;
-let colorsEnabled = true;
 let riskMap = {};
+let colorsEnabled = true;
 
 
 // =========================
@@ -30,10 +31,14 @@ function updateClock() {
     })
   );
 
-  document.getElementById("clockText").textContent =
-    est.toLocaleTimeString() +
-    " | " +
-    est.toLocaleDateString();
+  const el = document.getElementById("clockText");
+
+  if (el) {
+    el.textContent =
+      est.toLocaleTimeString() +
+      " | " +
+      est.toLocaleDateString();
+  }
 }
 
 setInterval(updateClock, 1000);
@@ -47,8 +52,6 @@ updateClock();
 class HomeControl {
 
   onAdd(map) {
-
-    this.map = map;
 
     const div = document.createElement("div");
     div.className = "maplibregl-ctrl maplibregl-ctrl-group";
@@ -64,7 +67,7 @@ class HomeControl {
         [180, 85]
       ]);
 
-      map.setFilter("countries-highlight", ["==", "ADMIN", ""]);
+      map.setFilter("countries-highlight", ["==", "ISO_A2", ""]);
     };
 
     div.appendChild(btn);
@@ -78,7 +81,7 @@ map.addControl(new HomeControl(), "top-right");
 
 
 // =========================
-// LEVEL COLORS
+// COLOR SYSTEM
 // =========================
 
 function levelToColor(level) {
@@ -88,12 +91,12 @@ function levelToColor(level) {
   if (level === 3) return "#e67e22";
   if (level === 4) return "#e74c3c";
 
-  return "#2a2a2a";
+  return "#f1c40f";
 }
 
 
 // =========================
-// LOAD ADVISORIES (GITHUB VERSION)
+// LOAD GITHUB RISK DATA (ISO VERSION)
 // =========================
 
 async function loadAdvisories() {
@@ -101,62 +104,31 @@ async function loadAdvisories() {
   try {
 
     const url =
-      "https://raw.githubusercontent.com/josh/us-state-travel-advisories-feeds/master/advisories.json";
+      "https://raw.githubusercontent.com/brogantrapp/world-risk-map/main/data/risk.json";
 
     const res = await fetch(url);
     const data = await res.json();
 
-    const temp = {};
+    riskMap = {};
 
-    /**
-     * We do NOT assume structure — we normalize it safely
-     * because GitHub datasets often vary slightly
-     */
-
-    const list =
-      Array.isArray(data)
-        ? data
-        : (data.data || data.advisories || []);
-
-    list.forEach(item => {
-
-      const country =
-        (
-          item.country ||
-          item.name ||
-          item.country_name ||
-          ""
-        )
-          .toLowerCase()
-          .trim();
-
-      const level =
-        Number(
-          item.advisoryLevel ||
-          item.level ||
-          item.risk_level
-        );
-
-      if (country && level >= 1 && level <= 4) {
-        temp[country] = level;
-      }
+    // normalize ISO keys
+    Object.entries(data || {}).forEach(([iso, level]) => {
+      riskMap[iso.toUpperCase()] = Number(level);
     });
 
-    riskMap = temp;
-
-    console.log("GitHub advisories loaded:", riskMap);
+    console.log("✅ ISO risk data loaded:", riskMap);
 
     applyColors();
 
   } catch (e) {
 
-    console.log("Advisory load failed:", e);
+    console.log("❌ Risk load failed:", e);
   }
 }
 
 
 // =========================
-// COLOR EXPRESSION
+// COLOR EXPRESSION (ISO MATCHING)
 // =========================
 
 function getColorExpr() {
@@ -165,23 +137,14 @@ function getColorExpr() {
 
     "match",
 
-    [
-      "downcase",
+    ["get", "ISO_A2"],
 
-      [
-        "coalesce",
-        ["get", "name"],
-        ["get", "ADMIN"],
-        ["get", "NAME"]
-      ]
-    ],
-
-    ...Object.entries(riskMap).flatMap(([country, level]) => [
-      country,
+    ...Object.entries(riskMap).flatMap(([iso, level]) => [
+      iso,
       levelToColor(level)
     ]),
 
-    "#2a2a2a"
+    "#f1c40f"
   ];
 }
 
@@ -192,36 +155,13 @@ function getColorExpr() {
 
 function applyColors() {
 
+  if (!map.getLayer("countries-fill")) return;
+
   map.setPaintProperty(
     "countries-fill",
     "fill-color",
-    colorsEnabled ? getColorExpr() : "#2a2a2a"
+    getColorExpr()
   );
-
-  map.setPaintProperty(
-    "countries-border",
-    "line-color",
-    colorsEnabled ? "#555" : "#2a2a2a"
-  );
-}
-
-
-// =========================
-// HIGHLIGHT
-// =========================
-
-function highlight(name) {
-
-  map.setFilter("countries-highlight", [
-    "==",
-    [
-      "coalesce",
-      ["get", "name"],
-      ["get", "ADMIN"],
-      ["get", "NAME"]
-    ],
-    name
-  ]);
 }
 
 
@@ -247,7 +187,7 @@ map.on("load", async () => {
     type: "fill",
     source: "countries",
     paint: {
-      "fill-color": "#2a2a2a",
+      "fill-color": "#f1c40f",
       "fill-opacity": 0.6
     }
   });
@@ -257,7 +197,7 @@ map.on("load", async () => {
     type: "line",
     source: "countries",
     paint: {
-      "line-color": "#555",
+      "line-color": "#444",
       "line-width": 0.7
     }
   });
@@ -270,24 +210,35 @@ map.on("load", async () => {
       "line-color": "#00ffff",
       "line-width": 3
     },
-    filter: ["==", "ADMIN", ""]
+    filter: ["==", "ISO_A2", ""]
   });
 
-  loadAdvisories();
+  setTimeout(loadAdvisories, 1000);
 
   setInterval(loadAdvisories, 86400000);
 });
 
 
 // =========================
-// TOGGLE (if you have checkbox)
+// TOGGLE (optional)
 // =========================
 
 const toggle = document.getElementById("colorToggle");
 
 if (toggle) {
+
   toggle.addEventListener("change", (e) => {
+
     colorsEnabled = e.target.checked;
-    applyColors();
+
+    if (colorsEnabled) {
+      loadAdvisories();
+    } else {
+      map.setPaintProperty(
+        "countries-fill",
+        "fill-color",
+        "#f1c40f"
+      );
+    }
   });
 }
