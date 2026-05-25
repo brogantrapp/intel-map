@@ -1,3 +1,4 @@
+
 // =========================
 // MAP
 // =========================
@@ -10,6 +11,9 @@ const map = new maplibregl.Map({
 });
 
 map.addControl(new maplibregl.NavigationControl());
+
+let geojsonData = null;
+let colorsEnabled = true;
 
 
 // =========================
@@ -37,13 +41,13 @@ updateClock();
 
 
 // =========================
-// TOGGLE
+// COLOR TOGGLE (FIXED)
 // =========================
 
-let colorsEnabled = true;
-
 document.getElementById("colorToggle").addEventListener("change", (e) => {
+
   colorsEnabled = e.target.checked;
+
   updateColors();
 });
 
@@ -52,31 +56,54 @@ function updateColors() {
   map.setPaintProperty(
     "countries-fill",
     "fill-color",
-    colorsEnabled ? [
-      "match",
-      ["get", "name"],
+    colorsEnabled ? getColorExpr() : "#2a2a2a"
+  );
 
-      "Russia", "#7a1f1f",
-      "Ukraine", "#7a1f1f",
-      "Iran", "#7a1f1f",
+  // FIX: borders also toggle properly
+  map.setPaintProperty(
+    "countries-border",
+    "line-color",
+    colorsEnabled ? "#555" : "#2a2a2a"
+  );
 
-      "China", "#8a6a1f",
-      "United States of America", "#8a6a1f",
-      "India", "#8a6a1f",
-
-      "Canada", "#1f5a3a",
-      "France", "#1f5a3a",
-      "Germany", "#1f5a3a",
-      "United Kingdom", "#1f5a3a",
-
-      "#1c1c1c"
-    ] : "#2b2b2b"
+  map.setPaintProperty(
+    "countries-border",
+    "line-opacity",
+    colorsEnabled ? 0.6 : 0.15
   );
 }
 
 
 // =========================
-// SEARCH + AUTOCOMPLETE
+// COLOR LOGIC
+// =========================
+
+function getColorExpr() {
+
+  return [
+    "match",
+    ["get", "name"],
+
+    "Russia", "#7a1f1f",
+    "Ukraine", "#7a1f1f",
+    "Iran", "#7a1f1f",
+
+    "China", "#8a6a1f",
+    "United States of America", "#8a6a1f",
+    "India", "#8a6a1f",
+
+    "Canada", "#1f5a3a",
+    "France", "#1f5a3a",
+    "Germany", "#1f5a3a",
+    "United Kingdom", "#1f5a3a",
+
+    "#1c1c1c"
+  ];
+}
+
+
+// =========================
+// SEARCH (FIXED ACCURATE ZOOM)
 // =========================
 
 function setupSearch() {
@@ -86,30 +113,24 @@ function setupSearch() {
 
   function getCountries() {
 
-    const features = map.querySourceFeatures("countries");
-
-    const names = new Set();
-
-    for (const f of features) {
-      if (f.properties?.name) names.add(f.properties.name);
-    }
-
-    return Array.from(names).sort();
+    return geojsonData.features
+      .map(f => f.properties.name)
+      .filter(Boolean)
+      .sort();
   }
 
-  function zoom(name) {
+  function zoomToCountry(name) {
 
-    const features = map.querySourceFeatures("countries");
-
-    const match = features.find(f =>
-      f.properties?.name?.toLowerCase() === name.toLowerCase()
+    const feature = geojsonData.features.find(f =>
+      f.properties.name.toLowerCase() === name.toLowerCase()
     );
 
-    if (!match) return;
+    if (!feature) return;
 
     const bounds = new maplibregl.LngLatBounds();
 
     function walk(coords) {
+
       if (typeof coords[0] === "number") {
         bounds.extend(coords);
       } else {
@@ -117,15 +138,16 @@ function setupSearch() {
       }
     }
 
-    walk(match.geometry.coordinates);
+    walk(feature.geometry.coordinates);
 
     map.fitBounds(bounds, {
       padding: 80,
-      maxZoom: 5
+      maxZoom: 5,
+      duration: 900
     });
   }
 
-  function show(matches) {
+  function showSuggestions(matches) {
 
     list.innerHTML = "";
 
@@ -141,9 +163,11 @@ function setupSearch() {
       div.textContent = name;
 
       div.onclick = () => {
+
         box.value = name;
         list.style.display = "none";
-        zoom(name);
+
+        zoomToCountry(name);
       };
 
       list.appendChild(div);
@@ -161,17 +185,17 @@ function setupSearch() {
       return;
     }
 
-    const countries = getCountries();
-
-    show(countries.filter(c =>
+    const matches = getCountries().filter(c =>
       c.toLowerCase().includes(q)
-    ));
+    );
+
+    showSuggestions(matches);
   });
 
   box.addEventListener("keydown", (e) => {
 
     if (e.key === "Enter") {
-      zoom(box.value.trim());
+      zoomToCountry(box.value.trim());
       list.style.display = "none";
     }
   });
@@ -186,62 +210,7 @@ function setupSearch() {
 
 
 // =========================
-// NEWS (SIMPLE SAFE FEED)
-// =========================
-
-const feeds = [
-  "https://feeds.bbci.co.uk/news/world/rss.xml",
-  "https://rss.cnn.com/rss/edition_world.rss",
-  "https://www.reuters.com/rssFeed/worldNews"
-];
-
-const proxy = "https://api.rss2json.com/v1/api.json?rss_url=";
-
-async function loadNews() {
-
-  const panel = document.getElementById("newsPanel");
-
-  panel.innerHTML = "<h3>LIVE NEWS</h3>";
-
-  let all = [];
-
-  for (const f of feeds) {
-
-    try {
-
-      const res = await fetch(proxy + encodeURIComponent(f));
-      const data = await res.json();
-
-      if (data.items) {
-
-        all.push(...data.items.map(i => ({
-          title: i.title,
-          link: i.link,
-          source: data.feed?.title || "News"
-        })));
-      }
-
-    } catch {}
-  }
-
-  all.slice(0, 12).forEach(a => {
-
-    const div = document.createElement("div");
-    div.className = "news-item";
-
-    div.innerHTML = `
-      <div class="source-label">${a.source}</div>
-      <a href="${a.link}" target="_blank">${a.title}</a>
-    `;
-
-    panel.appendChild(div);
-
-  });
-}
-
-
-// =========================
-// COUNTRIES
+// LOAD MAP DATA
 // =========================
 
 map.on("load", async () => {
@@ -250,11 +219,11 @@ map.on("load", async () => {
     "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
   );
 
-  const geo = await res.json();
+  geojsonData = await res.json();
 
   map.addSource("countries", {
     type: "geojson",
-    data: geo
+    data: geojsonData
   });
 
   map.addLayer({
@@ -262,7 +231,7 @@ map.on("load", async () => {
     type: "fill",
     source: "countries",
     paint: {
-      "fill-color": "#1c1c1c",
+      "fill-color": getColorExpr(),
       "fill-opacity": 0.55
     }
   });
@@ -273,12 +242,11 @@ map.on("load", async () => {
     source: "countries",
     paint: {
       "line-color": "#555",
-      "line-width": 0.7
+      "line-width": 0.7,
+      "line-opacity": 0.6
     }
   });
 
-  updateColors();
   setupSearch();
-  loadNews();
-  setInterval(loadNews, 60000);
+  updateColors();
 });
