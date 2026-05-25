@@ -146,15 +146,47 @@ async function loadAdvisories() {
 
     const list = data.data || data || [];
 
+    // COUNTRY NAME FIXES
+    const nameFixes = {
+
+      "united states":
+        "united states of america",
+
+      "russian federation":
+        "russia",
+
+      "korea, south":
+        "south korea",
+
+      "korea, north":
+        "north korea",
+
+      "congo, democratic republic of the":
+        "democratic republic of the congo",
+
+      "czech republic":
+        "czechia",
+
+      "burma":
+        "myanmar",
+
+      "eswatini":
+        "swaziland"
+    };
+
     list.forEach(item => {
 
-      const country =
+      let country =
         (item.country || "")
           .toLowerCase()
           .trim();
 
       const level =
         Number(item.advisoryLevel);
+
+      if (nameFixes[country]) {
+        country = nameFixes[country];
+      }
 
       if (
         country &&
@@ -167,12 +199,12 @@ async function loadAdvisories() {
 
     riskMap = temp;
 
-    applyColors();
-
     console.log(
-      "Advisories loaded:",
-      Object.keys(riskMap).length
+      "Loaded advisories:",
+      riskMap
     );
+
+    applyColors();
 
   } catch (e) {
 
@@ -228,6 +260,7 @@ function applyColors() {
 
   map.setPaintProperty(
     "countries-fill",
+
     "fill-color",
 
     colorsEnabled
@@ -237,6 +270,7 @@ function applyColors() {
 
   map.setPaintProperty(
     "countries-border",
+
     "line-color",
 
     colorsEnabled
