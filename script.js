@@ -1,13 +1,11 @@
+
 // =========================
-// MAP SETUP
+// MAP
 // =========================
 
 const map = new maplibregl.Map({
   container: "map",
-
-  style:
-    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-
+  style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
   center: [10, 25],
   zoom: 2
 });
@@ -16,7 +14,7 @@ map.addControl(new maplibregl.NavigationControl());
 
 
 // =========================
-// CLOCK
+// CLOCK (CENTERED TOP BAR)
 // =========================
 
 function updateClock() {
@@ -30,7 +28,6 @@ function updateClock() {
   );
 
   const time = est.toLocaleTimeString("en-US");
-
   const date = est.toLocaleDateString("en-US", {
     weekday: "short",
     year: "numeric",
@@ -39,71 +36,73 @@ function updateClock() {
   });
 
   document.getElementById("topbar").innerHTML =
-    `EST | ${time} | ${date}`;
+    `EST ${time} | ${date}`;
 }
 
 updateClock();
-
 setInterval(updateClock, 1000);
 
 
 // =========================
-// ENGLISH NEWS ONLY
+// RELIABLE ENGLISH NEWS (RSS)
 // =========================
+
+const feeds = [
+  "https://feeds.bbci.co.uk/news/world/rss.xml",
+  "https://rss.cnn.com/rss/edition_world.rss",
+  "https://www.reuters.com/rssFeed/worldNews",
+  "https://feeds.a.dj.com/rss/RSSWorldNews.xml"
+];
+
+// RSS → JSON proxy (works in browser)
+const rssProxy = "https://api.rss2json.com/v1/api.json?rss_url=";
 
 async function loadNews() {
 
   const panel = document.getElementById("newsPanel");
 
+  panel.innerHTML = "<h3>LIVE NEWS</h3>";
+
+  let allArticles = [];
+
   try {
 
-    const query =
-      "sourcecountry:US OR sourcecountry:UK " +
-      "AND (domain:bbc.com OR domain:cnn.com OR domain:reuters.com OR domain:nytimes.com)";
+    for (const feed of feeds) {
 
-    const url =
-      "https://api.gdeltproject.org/api/v2/doc/doc?" +
-      "query=" + encodeURIComponent(query) +
-      "&format=json" +
-      "&maxrecords=10" +
-      "&sort=datedesc";
+      const res = await fetch(rssProxy + encodeURIComponent(feed));
 
-    const res = await fetch(url);
+      const data = await res.json();
 
-    const data = await res.json();
+      if (data.items) {
 
-    const articles = data.articles || [];
+        const items = data.items.map(item => ({
+          title: item.title,
+          link: item.link,
+          source: data.feed?.title || "News"
+        }));
 
-    panel.innerHTML = "<h3>LIVE NEWS</h3>";
+        allArticles = allArticles.concat(items);
+      }
+    }
 
-    if (!articles.length) {
-
-      panel.innerHTML += "<p>No live articles found.</p>";
+    if (!allArticles.length) {
+      panel.innerHTML += "<p>No news available.</p>";
       return;
     }
 
-    articles.forEach(article => {
-
-      const title = article.title || "News Update";
-
-      const source =
-        article.domain ||
-        article.sourceCountry ||
-        "News";
-
-      const link = article.url || "#";
+    // limit + display
+    allArticles.slice(0, 12).forEach(article => {
 
       const div = document.createElement("div");
-
       div.className = "news-item";
 
       div.innerHTML = `
         <div class="source-label">
-          ${source.toUpperCase()}
+          ${article.source}
         </div>
 
-        <a href="${link}" target="_blank">
-          ${title}
+        <a href="${article.link}" target="_blank">
+          ${article.title}
         </a>
       `;
 
@@ -113,56 +112,38 @@ async function loadNews() {
 
   } catch (err) {
 
-    console.log("News failed:", err);
+    console.log("News error:", err);
 
     panel.innerHTML = `
       <h3>NEWS OFFLINE</h3>
 
       <div class="news-item">
         <div class="source-label">BBC</div>
-        <a href="https://bbc.com/news" target="_blank">
-          BBC World News
-        </a>
+        <a href="https://bbc.com/news" target="_blank">BBC News</a>
       </div>
 
       <div class="news-item">
         <div class="source-label">REUTERS</div>
-        <a href="https://reuters.com" target="_blank">
-          Reuters World Updates
-        </a>
-      </div>
-
-      <div class="news-item">
-        <div class="source-label">CNN</div>
-        <a href="https://cnn.com" target="_blank">
-          CNN Headlines
-        </a>
+        <a href="https://reuters.com" target="_blank">Reuters</a>
       </div>
     `;
   }
 }
 
 loadNews();
-
 setInterval(loadNews, 60000);
 
 
 // =========================
-// COUNTRY MAP
+// COUNTRIES
 // =========================
 
 const countriesUrl =
   "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json";
 
-
-// =========================
-// COUNTRY COLORS
-// =========================
-
 async function loadCountries() {
 
   const res = await fetch(countriesUrl);
-
   const geojson = await res.json();
 
   map.addSource("countries", {
@@ -171,39 +152,30 @@ async function loadCountries() {
   });
 
   map.addLayer({
-    id: "country-fills",
+    id: "country-fill",
     type: "fill",
     source: "countries",
 
     paint: {
-
       "fill-color": [
-
         "match",
-
         ["get", "name"],
 
-        // HIGH RISK
         "Russia", "#7a1f1f",
         "Ukraine", "#7a1f1f",
         "Iran", "#7a1f1f",
 
-        // MEDIUM RISK
         "China", "#8a6a1f",
         "United States of America", "#8a6a1f",
         "India", "#8a6a1f",
-        "Brazil", "#8a6a1f",
 
-        // LOW RISK
         "Canada", "#1f5a3a",
         "France", "#1f5a3a",
         "Germany", "#1f5a3a",
         "United Kingdom", "#1f5a3a",
 
-        // DEFAULT
         "#1c1c1c"
       ],
-
       "fill-opacity": 0.55
     }
   });
@@ -212,44 +184,19 @@ async function loadCountries() {
     id: "country-borders",
     type: "line",
     source: "countries",
-
     paint: {
       "line-color": "#555",
       "line-width": 0.7,
       "line-opacity": 0.5
     }
   });
-
 }
 
 
 // =========================
-// COUNTRY CLICK POPUP
-// =========================
-
-map.on("click", "country-fills", (e) => {
-
-  const country =
-    e.features[0].properties.name;
-
-  new maplibregl.Popup()
-    .setLngLat(e.lngLat)
-    .setHTML(`
-      <div style="color:black;">
-        <strong>${country}</strong>
-      </div>
-    `)
-    .addTo(map);
-
-});
-
-
-// =========================
-// MAP LOAD
+// INIT MAP
 // =========================
 
 map.on("load", () => {
-
   loadCountries();
-
 });
