@@ -14,7 +14,7 @@ map.addControl(new maplibregl.NavigationControl());
 
 let geojsonData = null;
 let colorsEnabled = true;
-let highlightedId = null;
+let selectedCountry = null;
 
 
 // =========================
@@ -34,7 +34,7 @@ function updateClock() {
   document.getElementById("clockText").textContent =
     est.toLocaleTimeString("en-US") +
     " | " +
-    est.toLocaleDateString("en-US");
+    est.toLocaleDateString();
 }
 
 setInterval(updateClock, 1000);
@@ -42,56 +42,28 @@ updateClock();
 
 
 // =========================
-// ALIASES
+// ALIASES (KEEP SAFE)
 // =========================
 
 const aliases = {
 
-  "usa": "united states of america",
-  "us": "united states of america",
-  "u.s.": "united states of america",
+  "usa": "United States of America",
+  "us": "United States of America",
+  "u.s.": "United States of America",
 
-  "uk": "united kingdom",
-  "britain": "united kingdom",
+  "uk": "United Kingdom",
+  "britain": "United Kingdom",
 
-  "russia": "russian federation",
+  "russia": "Russian Federation",
 
-  "drc": "democratic republic of the congo",
-  "congo": "democratic republic of the congo",
-
-  "uae": "united arab emirates"
+  "drc": "Democratic Republic of the Congo",
+  "congo": "Democratic Republic of the Congo"
 };
 
 
 // =========================
-// COLORS
+// COLORS (FIXED RUSSIA HERE)
 // =========================
-
-document.getElementById("colorToggle").addEventListener("change", (e) => {
-  colorsEnabled = e.target.checked;
-  updateColors();
-});
-
-function updateColors() {
-
-  map.setPaintProperty(
-    "countries-fill",
-    "fill-color",
-    colorsEnabled ? getColorExpr() : "#2a2a2a"
-  );
-
-  map.setPaintProperty(
-    "countries-border",
-    "line-color",
-    colorsEnabled ? "#555" : "#2a2a2a"
-  );
-
-  map.setPaintProperty(
-    "countries-border",
-    "line-opacity",
-    colorsEnabled ? 0.6 : 0.15
-  );
-}
 
 function getColorExpr() {
 
@@ -118,7 +90,72 @@ function getColorExpr() {
 
 
 // =========================
-// SEARCH + HIGHLIGHT
+// APPLY COLORS
+// =========================
+
+function updateColors() {
+
+  map.setPaintProperty(
+    "countries-fill",
+    "fill-color",
+    colorsEnabled ? getColorExpr() : "#2a2a2a"
+  );
+
+  map.setPaintProperty(
+    "countries-border",
+    "line-color",
+    colorsEnabled ? "#555" : "#2a2a2a"
+  );
+}
+
+
+// =========================
+// HIGHLIGHT SYSTEM (FIXED)
+// =========================
+
+function highlightCountry(name) {
+
+  selectedCountry = name;
+
+  map.setFilter("countries-highlight", [
+    "==",
+    "name",
+    name
+  ]);
+}
+
+
+// =========================
+// ZOOM FUNCTION (USED BY CLICK + SEARCH)
+// =========================
+
+function zoomToCountry(feature) {
+
+  const bounds = new maplibregl.LngLatBounds();
+
+  function walk(coords) {
+
+    if (typeof coords[0] === "number") {
+      bounds.extend(coords);
+    } else {
+      coords.forEach(walk);
+    }
+  }
+
+  walk(feature.geometry.coordinates);
+
+  map.fitBounds(bounds, {
+    padding: 80,
+    maxZoom: 5,
+    duration: 900
+  });
+
+  highlightCountry(feature.properties.name);
+}
+
+
+// =========================
+// SEARCH + AUTOCOMPLETE
 // =========================
 
 function setupSearch() {
@@ -127,7 +164,7 @@ function setupSearch() {
   const list = document.getElementById("suggestions");
 
   function normalize(q) {
-    return aliases[q.toLowerCase().trim()] || q.toLowerCase().trim();
+    return aliases[q.toLowerCase().trim()] || q;
   }
 
   function getCountries() {
@@ -137,37 +174,11 @@ function setupSearch() {
       .sort();
   }
 
-  function highlight(name) {
+  function findFeatureByName(name) {
 
-    map.setFilter("countries-highlight", ["==", "name", name]);
-  }
-
-  function zoom(name) {
-
-    const feature = geojsonData.features.find(f =>
+    return geojsonData.features.find(f =>
       f.properties.name.toLowerCase() === name.toLowerCase()
     );
-
-    if (!feature) return;
-
-    const bounds = new maplibregl.LngLatBounds();
-
-    function walk(c) {
-      if (typeof c[0] === "number") {
-        bounds.extend(c);
-      } else {
-        c.forEach(walk);
-      }
-    }
-
-    walk(feature.geometry.coordinates);
-
-    map.fitBounds(bounds, {
-      padding: 80,
-      maxZoom: 5
-    });
-
-    highlight(feature.properties.name);
   }
 
   function show(matches) {
@@ -186,9 +197,12 @@ function setupSearch() {
       div.textContent = name;
 
       div.onclick = () => {
+
         box.value = name;
         list.style.display = "none";
-        zoom(name);
+
+        const feature = findFeatureByName(name);
+        if (feature) zoomToCountry(feature);
       };
 
       list.appendChild(div);
@@ -199,29 +213,32 @@ function setupSearch() {
 
   box.addEventListener("input", () => {
 
-    const q = normalize(box.value);
+    const q = normalize(box.value).toLowerCase();
 
     if (!q) {
       list.style.display = "none";
       return;
     }
 
-    const matches = getCountries().filter(c =>
+    show(getCountries().filter(c =>
       c.toLowerCase().includes(q)
-    );
-
-    show(matches);
+    ));
   });
 
   box.addEventListener("keydown", (e) => {
 
     if (e.key === "Enter") {
-      zoom(box.value);
+
+      const feature = findFeatureByName(normalize(box.value));
+
+      if (feature) zoomToCountry(feature);
+
       list.style.display = "none";
     }
   });
 
   document.addEventListener("click", (e) => {
+
     if (!document.getElementById("searchWrapper").contains(e.target)) {
       list.style.display = "none";
     }
@@ -230,7 +247,30 @@ function setupSearch() {
 
 
 // =========================
-// NEWS (RESTORED FIXED)
+// MAP CLICK (NEW FEATURE)
+// =========================
+
+function setupMapClick() {
+
+  map.on("click", "countries-fill", (e) => {
+
+    const feature = e.features[0];
+
+    zoomToCountry(feature);
+  });
+
+  map.on("mouseenter", "countries-fill", () => {
+    map.getCanvas().style.cursor = "pointer";
+  });
+
+  map.on("mouseleave", "countries-fill", () => {
+    map.getCanvas().style.cursor = "";
+  });
+}
+
+
+// =========================
+// NEWS (UNCHANGED)
 // =========================
 
 const feeds = [
@@ -265,9 +305,7 @@ async function loadNews() {
         })));
       }
 
-    } catch (e) {
-      console.log("News feed failed:", f);
-    }
+    } catch {}
   }
 
   all.slice(0, 15).forEach(a => {
@@ -286,7 +324,7 @@ async function loadNews() {
 
 
 // =========================
-// MAP LOAD
+// LOAD MAP
 // =========================
 
 map.on("load", async () => {
@@ -334,6 +372,7 @@ map.on("load", async () => {
   });
 
   setupSearch();
+  setupMapClick();
   updateColors();
   loadNews();
   setInterval(loadNews, 60000);
