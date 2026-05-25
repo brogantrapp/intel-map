@@ -2,38 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>World Risk Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-  <link
-    href="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css"
-    rel="stylesheet"
-  />
+  <title>Intel Map</title>
+
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
 
-<div id="topBar">
-  <div id="clockText"></div>
+  <div id="topbar">
 
-  <input id="searchBox" placeholder="Search country..." />
-  <div id="suggestions"></div>
+    <span id="clockText">Loading...</span>
 
-  <label class="toggle">
-    <input type="checkbox" id="colorToggle" checked />
-    Colors
-  </label>
-</div>
+    <div id="searchWrapper">
+      <input id="searchBox" type="text" placeholder="Search country..." autocomplete="off"/>
+      <div id="suggestions"></div>
+    </div>
 
-<div id="map"></div>
+    <label class="toggle">
+      Map Colors
+      <input type="checkbox" id="colorToggle" checked>
+    </label>
 
-<div id="newsPanel"></div>
+  </div>
 
-<script src="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js"></script>
-<script src="script.js"></script>
+  <div id="container">
+    <div id="map"></div>
+    <div id="newsPanel"></div>
+  </div>
 
-</body>
-</html>
+  <script src="script.js"></script>
+
 </body>
 </html>
