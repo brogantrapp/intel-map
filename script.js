@@ -14,7 +14,6 @@ map.addControl(new maplibregl.NavigationControl());
 
 let geojsonData = null;
 let colorsEnabled = true;
-let selectedCountry = null;
 
 
 // =========================
@@ -42,27 +41,23 @@ updateClock();
 
 
 // =========================
-// ALIASES (KEEP SAFE)
+// ALIASES
 // =========================
 
 const aliases = {
 
   "usa": "United States of America",
   "us": "United States of America",
-  "u.s.": "United States of America",
-
   "uk": "United Kingdom",
   "britain": "United Kingdom",
-
-  "russia": "Russian Federation",
-
+  "russia": "Russia", // IMPORTANT FIX
   "drc": "Democratic Republic of the Congo",
   "congo": "Democratic Republic of the Congo"
 };
 
 
 // =========================
-// COLORS (FIXED RUSSIA HERE)
+// COLOR LOGIC (FIXED RUSSIA HERE)
 // =========================
 
 function getColorExpr() {
@@ -71,7 +66,10 @@ function getColorExpr() {
     "match",
     ["get", "name"],
 
+    // RUSSIA FIX (handles both dataset versions)
+    "Russia", "#7a1f1f",
     "Russian Federation", "#7a1f1f",
+
     "Ukraine", "#7a1f1f",
     "Iran", "#7a1f1f",
 
@@ -90,32 +88,27 @@ function getColorExpr() {
 
 
 // =========================
-// APPLY COLORS
+// APPLY COLORS (FIXED TOGGLE)
 // =========================
 
-function updateColors() {
+function applyColors() {
 
-  map.setPaintProperty(
-    "countries-fill",
-    "fill-color",
-    colorsEnabled ? getColorExpr() : "#2a2a2a"
-  );
+  const fillColor = colorsEnabled ? getColorExpr() : "#2a2a2a";
+  const borderColor = colorsEnabled ? "#555" : "#2a2a2a";
+  const borderOpacity = colorsEnabled ? 0.6 : 0.1;
 
-  map.setPaintProperty(
-    "countries-border",
-    "line-color",
-    colorsEnabled ? "#555" : "#2a2a2a"
-  );
+  map.setPaintProperty("countries-fill", "fill-color", fillColor);
+
+  map.setPaintProperty("countries-border", "line-color", borderColor);
+  map.setPaintProperty("countries-border", "line-opacity", borderOpacity);
 }
 
 
 // =========================
-// HIGHLIGHT SYSTEM (FIXED)
+// HIGHLIGHT
 // =========================
 
-function highlightCountry(name) {
-
-  selectedCountry = name;
+function highlight(name) {
 
   map.setFilter("countries-highlight", [
     "==",
@@ -126,19 +119,19 @@ function highlightCountry(name) {
 
 
 // =========================
-// ZOOM FUNCTION (USED BY CLICK + SEARCH)
+// ZOOM FUNCTION
 // =========================
 
-function zoomToCountry(feature) {
+function zoomTo(feature) {
 
   const bounds = new maplibregl.LngLatBounds();
 
-  function walk(coords) {
+  function walk(c) {
 
-    if (typeof coords[0] === "number") {
-      bounds.extend(coords);
+    if (typeof c[0] === "number") {
+      bounds.extend(c);
     } else {
-      coords.forEach(walk);
+      c.forEach(walk);
     }
   }
 
@@ -150,7 +143,7 @@ function zoomToCountry(feature) {
     duration: 900
   });
 
-  highlightCountry(feature.properties.name);
+  highlight(feature.properties.name);
 }
 
 
@@ -167,15 +160,11 @@ function setupSearch() {
     return aliases[q.toLowerCase().trim()] || q;
   }
 
-  function getCountries() {
-    return geojsonData.features
-      .map(f => f.properties.name)
-      .filter(Boolean)
-      .sort();
+  function countries() {
+    return geojsonData.features.map(f => f.properties.name);
   }
 
-  function findFeatureByName(name) {
-
+  function find(name) {
     return geojsonData.features.find(f =>
       f.properties.name.toLowerCase() === name.toLowerCase()
     );
@@ -201,8 +190,8 @@ function setupSearch() {
         box.value = name;
         list.style.display = "none";
 
-        const feature = findFeatureByName(name);
-        if (feature) zoomToCountry(feature);
+        const f = find(name);
+        if (f) zoomTo(f);
       };
 
       list.appendChild(div);
@@ -220,7 +209,7 @@ function setupSearch() {
       return;
     }
 
-    show(getCountries().filter(c =>
+    show(countries().filter(c =>
       c.toLowerCase().includes(q)
     ));
   });
@@ -229,9 +218,9 @@ function setupSearch() {
 
     if (e.key === "Enter") {
 
-      const feature = findFeatureByName(normalize(box.value));
+      const f = find(normalize(box.value));
 
-      if (feature) zoomToCountry(feature);
+      if (f) zoomTo(f);
 
       list.style.display = "none";
     }
@@ -247,16 +236,15 @@ function setupSearch() {
 
 
 // =========================
-// MAP CLICK (NEW FEATURE)
+// CLICK MAP (IMPORTANT)
 // =========================
 
-function setupMapClick() {
+function setupClick() {
 
   map.on("click", "countries-fill", (e) => {
 
-    const feature = e.features[0];
-
-    zoomToCountry(feature);
+    const f = e.features[0];
+    zoomTo(f);
   });
 
   map.on("mouseenter", "countries-fill", () => {
@@ -270,7 +258,7 @@ function setupMapClick() {
 
 
 // =========================
-// NEWS (UNCHANGED)
+// NEWS (UNCHANGED WORKING)
 // =========================
 
 const feeds = [
@@ -372,8 +360,20 @@ map.on("load", async () => {
   });
 
   setupSearch();
-  setupMapClick();
-  updateColors();
+  setupClick();
+  applyColors();
   loadNews();
   setInterval(loadNews, 60000);
+});
+
+
+// =========================
+// TOGGLE EVENT
+// =========================
+
+document.getElementById("colorToggle").addEventListener("change", (e) => {
+
+  colorsEnabled = e.target.checked;
+
+  applyColors();
 });
