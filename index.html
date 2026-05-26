@@ -9,7 +9,167 @@
 <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
 <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
-<link rel="stylesheet" href="style.css"/>
+<style>
+
+/* =========================
+   BASE
+========================= */
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #050608;
+  font-family: Arial, sans-serif;
+  color: white;
+}
+
+/* =========================
+   TOP BAR
+========================= */
+
+#topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 320px;
+
+  height: 60px;
+  background: #111;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 0 12px;
+  z-index: 999;
+}
+
+#searchBox {
+  width: 240px;
+  padding: 8px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: white;
+}
+
+#clockText {
+  color: #aaa;
+  font-size: 13px;
+}
+
+/* =========================
+   MAP
+========================= */
+
+#map {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 320px;
+  bottom: 0;
+}
+
+/* =========================
+   SIDEBAR
+========================= */
+
+#sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+
+  width: 320px;
+  bottom: 0;
+
+  background: #0d0f12;
+
+  border-left: 1px solid #222;
+
+  overflow-y: auto;
+
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+#sidebar h2 {
+  margin-top: 8px;
+  margin-left: 6px;
+  color: #aaa;
+}
+
+#newsPanel div {
+  padding: 10px;
+  border-bottom: 1px solid #222;
+}
+
+#newsPanel a {
+  color: #ccc;
+  text-decoration: none;
+}
+
+/* =========================
+   SEARCH DROPDOWN
+========================= */
+
+.searchDropdown {
+  position: absolute;
+  background: #111;
+  border: 1px solid #333;
+
+  width: 240px;
+  max-height: 220px;
+
+  overflow-y: auto;
+
+  z-index: 9999;
+}
+
+.searchItem {
+  padding: 8px;
+  cursor: pointer;
+}
+
+.searchItem:hover {
+  background: #222;
+}
+
+/* =========================
+   MAP CONTROLS POSITION FIX
+========================= */
+
+.maplibregl-ctrl-top-right {
+  right: 325px !important;
+  top: 70px !important;
+}
+
+/* =========================
+   HOME BUTTON STYLE (FIXED)
+========================= */
+
+.home-control-btn {
+  width: 32px;
+  height: 32px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #e6e6e6;  /* LIGHT BACKGROUND */
+  border: 1px solid #bbb;
+
+  color: #111;          /* DARK HOME ICON */
+  font-size: 14px;
+
+  cursor: pointer;
+}
+
+.home-control-btn:hover {
+  background: #d6d6d6;
+}
+
+</style>
+
 </head>
 
 <body>
@@ -20,11 +180,6 @@
 
   <div id="clockText"></div>
 
-  <label style="color:#aaa;font-size:13px;">
-    <input type="checkbox" id="colorToggle" checked />
-    Risk Colors
-  </label>
-
 </div>
 
 <div id="map"></div>
@@ -34,7 +189,277 @@
   <div id="newsPanel"></div>
 </div>
 
-<script src="app.js"></script>
+<script>
+
+/* =========================
+   MAP INIT
+========================= */
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  center: [0, 20],
+  zoom: 1.8
+});
+
+map.addControl(new maplibregl.NavigationControl());
+
+/* =========================
+   HOME BUTTON CONTROL
+========================= */
+
+class HomeControl {
+
+  onAdd(map) {
+
+    this._map = map;
+
+    const container = document.createElement("div");
+    container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+
+    const btn = document.createElement("button");
+    btn.className = "home-control-btn";
+
+    btn.innerHTML = "⌂";   // simple clean home symbol
+    btn.title = "Reset View";
+
+    btn.onclick = () => {
+
+      map.flyTo({
+        center: [0, 20],
+        zoom: 1.8,
+        bearing: 0,
+        pitch: 0,
+        duration: 1000
+      });
+
+    };
+
+    container.appendChild(btn);
+    return container;
+  }
+
+  onRemove() {
+    this._container?.remove();
+    this._map = undefined;
+  }
+}
+
+map.addControl(new HomeControl(), "top-right");
+
+/* =========================
+   CLOCK
+========================= */
+
+setInterval(() => {
+
+  document.getElementById("clockText").innerText =
+    new Date().toLocaleTimeString() +
+    " | " +
+    new Date().toLocaleDateString();
+
+}, 1000);
+
+/* =========================
+   NEWS
+========================= */
+
+async function loadNews() {
+
+  const panel = document.getElementById("newsPanel");
+
+  panel.innerHTML = "Loading news...";
+
+  try {
+
+    const res = await fetch(
+      "https://api.allorigins.win/raw?url=" +
+      encodeURIComponent("https://feeds.bbci.co.uk/news/world/rss.xml")
+    );
+
+    const text = await res.text();
+
+    const xml = new DOMParser().parseFromString(text, "text/xml");
+
+    const items = xml.querySelectorAll("item");
+
+    panel.innerHTML = "";
+
+    items.forEach((item, i) => {
+
+      if (i > 12) return;
+
+      const title = item.querySelector("title")?.textContent;
+      const link = item.querySelector("link")?.textContent;
+
+      const div = document.createElement("div");
+
+      div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
+
+      panel.appendChild(div);
+    });
+
+  } catch (e) {
+    panel.innerHTML = "News unavailable";
+  }
+}
+
+loadNews();
+setInterval(loadNews, 60000);
+
+/* =========================
+   WORLD MAP DATA
+========================= */
+
+let geojson = null;
+
+fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
+.then(r => r.json())
+.then(data => {
+
+  geojson = data;
+
+  map.on("load", () => {
+
+    map.addSource("countries", {
+      type: "geojson",
+      data: geojson
+    });
+
+    map.addLayer({
+      id: "fill",
+      type: "fill",
+      source: "countries",
+      paint: {
+        "fill-color": "#2a2a2a",
+        "fill-opacity": 0.7
+      }
+    });
+
+    map.addLayer({
+      id: "border",
+      type: "line",
+      source: "countries",
+      paint: {
+        "line-color": "#111",
+        "line-width": 0.8
+      }
+    });
+
+    setupSearch();
+  });
+
+});
+
+/* =========================
+   SEARCH SYSTEM
+========================= */
+
+function setupSearch() {
+
+  const input = document.getElementById("searchBox");
+
+  const dropdown = document.createElement("div");
+  dropdown.className = "searchDropdown";
+  dropdown.style.display = "none";
+  document.body.appendChild(dropdown);
+
+  function matches(q) {
+
+    q = q.toLowerCase();
+
+    return geojson.features
+      .filter(f => f.properties.name.toLowerCase().includes(q))
+      .slice(0, 8);
+  }
+
+  function highlight(f) {
+
+    if (map.getLayer("highlight")) {
+      map.removeLayer("highlight");
+    }
+
+    if (map.getSource("highlight-src")) {
+      map.removeSource("highlight-src");
+    }
+
+    map.addSource("highlight-src", {
+      type: "geojson",
+      data: f
+    });
+
+    map.addLayer({
+      id: "highlight",
+      type: "line",
+      source: "highlight-src",
+      paint: {
+        "line-color": "#ffffff",
+        "line-width": 3
+      }
+    });
+  }
+
+  input.addEventListener("input", e => {
+
+    const value = e.target.value;
+
+    const list = matches(value);
+
+    dropdown.innerHTML = "";
+
+    if (!list.length) {
+      dropdown.style.display = "none";
+      return;
+    }
+
+    const rect = input.getBoundingClientRect();
+
+    dropdown.style.left = rect.left + "px";
+    dropdown.style.top = rect.bottom + "px";
+
+    list.forEach(f => {
+
+      const item = document.createElement("div");
+      item.className = "searchItem";
+      item.textContent = f.properties.name;
+
+      item.onclick = () => {
+
+        input.value = f.properties.name;
+        dropdown.style.display = "none";
+
+        highlight(f);
+
+        const bounds = new maplibregl.LngLatBounds();
+
+        function add(c) {
+          if (typeof c[0] === "number") {
+            bounds.extend(c);
+          } else {
+            c.forEach(add);
+          }
+        }
+
+        add(f.geometry.coordinates);
+
+        map.fitBounds(bounds, {
+          padding: 50,
+          duration: 1000
+        });
+      };
+
+      dropdown.appendChild(item);
+    });
+
+    dropdown.style.display = "block";
+  });
+
+  document.addEventListener("click", e => {
+    if (e.target !== input) dropdown.style.display = "none";
+  });
+}
+
+</script>
 
 </body>
 </html>
