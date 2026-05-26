@@ -4,73 +4,84 @@ async function run() {
 
   try {
 
-    console.log("🌍 Fetching world countries...");
+    console.log("🌍 Starting scraper...");
 
-    // GET ALL COUNTRIES (guaranteed complete)
     const res = await fetch("https://restcountries.com/v3.1/all");
+
+    if (!res.ok) {
+      throw new Error("API request failed: " + res.status);
+    }
 
     const data = await res.json();
 
+    console.log("📦 Countries received:", data.length);
+
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("No country data returned");
+    }
+
     const riskMap = {};
 
-    // SIMPLE RISK MODEL (you can replace later with real intel sources)
-    function assignRisk(country) {
+    function getRisk(country) {
+
+      const name = country.name?.common?.toLowerCase();
 
       const region = country.region;
 
-      const name = country.name.common.toLowerCase();
-
-      // Default safe
       let risk = 1;
 
-      // Higher baseline risk regions (very rough intelligence model)
-      if (region === "Asia") risk = 2;
-      if (region === "Africa") risk = 2;
+      if (!name) return 1;
 
-      // Higher-risk examples
-      const highRisk = [
-        "russia",
-        "ukraine",
-        "iran",
-        "north korea",
-        "syria",
-        "afghanistan"
-      ];
+      if (["russia", "ukraine", "iran", "north korea", "syria", "afghanistan"].includes(name)) {
+        return 4;
+      }
 
-      const mediumRisk = [
-        "mexico",
-        "turkey",
-        "pakistan",
-        "venezuela"
-      ];
+      if (["mexico", "turkey", "pakistan", "venezuela"].includes(name)) {
+        return 3;
+      }
 
-      if (highRisk.includes(name)) risk = 4;
-      else if (mediumRisk.includes(name)) risk = 3;
+      if (region === "Africa" || region === "Asia") {
+        risk = 2;
+      }
 
       return risk;
     }
 
-    data.forEach(country => {
+    for (const country of data) {
 
-      const name =
-        country.name.common.toLowerCase();
+      const name = country.name?.common;
 
-      riskMap[name] = assignRisk(country);
-    });
+      if (!name) continue;
 
-    // SAVE FILE
+      riskMap[name.toLowerCase()] = getRisk(country);
+    }
+
+    console.log("🧠 Risk map size:", Object.keys(riskMap).length);
+
+    fs.mkdirSync("data", { recursive: true });
+
     fs.writeFileSync(
       "data/risk.json",
       JSON.stringify(riskMap, null, 2)
     );
 
-    console.log("✅ risk.json generated for ALL countries");
+    console.log("✅ risk.json written successfully");
 
   } catch (err) {
 
-    console.error("❌ Scraper failed:");
+    console.error("❌ SCRAPER FAILED:");
     console.error(err);
 
+    // FORCE FILE OUTPUT EVEN ON FAILURE (important debug step)
+    fs.mkdirSync("data", { recursive: true });
+
+    fs.writeFileSync(
+      "data/risk.json",
+      JSON.stringify({
+        error: true,
+        message: err.message
+      }, null, 2)
+    );
   }
 }
 
