@@ -1,3 +1,4 @@
+
 document.addEventListener("DOMContentLoaded", async () => {
 
   // =========================
@@ -14,21 +15,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   map.addControl(new maplibregl.NavigationControl());
 
   // =========================
-  // MOVE MAP CONTROLS RIGHT
-  // =========================
-
-  const style = document.createElement("style");
-
-  style.innerHTML = `
-    .maplibregl-ctrl-top-right {
-      right: 285px !important;
-      top: 70px !important;
-    }
-  `;
-
-  document.head.appendChild(style);
-
-  // =========================
   // HOME BUTTON
   // =========================
 
@@ -36,15 +22,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     onAdd(map) {
 
-      this._map = map;
-
       const container = document.createElement("div");
       container.className = "maplibregl-ctrl maplibregl-ctrl-group";
 
       const btn = document.createElement("button");
 
       btn.className = "home-control-btn";
-
       btn.title = "Reset View";
 
       btn.innerHTML = "⌂";
@@ -68,11 +51,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       return container;
     }
-
-    onRemove() {
-      this._container?.remove();
-      this._map = undefined;
-    }
   }
 
   map.addControl(new HomeControl(), "top-right");
@@ -89,24 +67,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       new Date().toLocaleDateString();
 
   }, 1000);
-
-  // =========================
-  // COLOR TOGGLE CHECKBOX
-  // =========================
-
-  const topbar = document.getElementById("topbar");
-
-  const toggleWrap = document.createElement("label");
-
-  toggleWrap.style.color = "#aaa";
-  toggleWrap.style.fontSize = "13px";
-
-  toggleWrap.innerHTML = `
-    <input type="checkbox" id="colorToggle" checked />
-    Risk Colors
-  `;
-
-  topbar.appendChild(toggleWrap);
 
   // =========================
   // NEWS
@@ -130,7 +90,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       const xml =
         new DOMParser().parseFromString(text, "text/xml");
 
-      const items = xml.querySelectorAll("item");
+      const items =
+        xml.querySelectorAll("item");
 
       panel.innerHTML = "";
 
@@ -155,79 +116,61 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (e) {
 
       panel.innerHTML = "News unavailable";
-
     }
   }
 
   loadNews();
-
   setInterval(loadNews, 60000);
 
   // =========================
-  // WORLD DATA
+  // LOAD DATA
   // =========================
 
-  const res = await fetch(
+  const geojson = await fetch(
     "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
-  );
-
-  const geojson = await res.json();
-
-  // =========================
-  // RISK DATA
-  // =========================
+  ).then(r => r.json());
 
   let riskMap = {};
+  let colorsEnabled = true;
 
-  async function loadRiskData() {
+  // =========================
+  // LOAD RISK JSON (FROM SCRAPER)
+  // =========================
+
+  async function loadRisk() {
 
     try {
 
-      const res =
-        await fetch("./data/risk.json");
+      const res = await fetch("./data/risk.json");
 
-      riskMap =
-        await res.json();
+      riskMap = await res.json();
 
-      console.log("✅ risk.json loaded");
+      console.log("✅ risk loaded");
 
-      applyRiskColors();
+      applyColors();
 
     } catch (e) {
 
-      console.error("❌ Risk load failed");
-
-      console.error(e);
-
+      console.error("❌ risk load failed", e);
     }
   }
 
   // =========================
-  // RISK COLORS
+  // COLOR SYSTEM
   // =========================
 
-  function getRiskColor(level) {
+  function getColor(level) {
 
-    switch(level) {
+    switch (level) {
 
-      case 4:
-        return "#ff0000";
-
-      case 3:
-        return "#ff8800";
-
-      case 2:
-        return "#ffee00";
-
-      default:
-        return "#00aa44";
+      case 4: return "#ff0000";
+      case 3: return "#ff8800";
+      case 2: return "#ffee00";
+      default: return "#00aa44";
     }
   }
 
-  function applyRiskColors() {
-
-    const enabled =
-      document.getElementById("colorToggle")?.checked;
+  function applyColors() {
 
     geojson.features.forEach(f => {
 
@@ -237,9 +180,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const level =
         riskMap[name] || 1;
 
-      f.properties.riskColor =
-        enabled
-          ? getRiskColor(level)
+      f.properties.color =
+        colorsEnabled
+          ? getColor(level)
           : "#2a2a2a";
     });
 
@@ -247,7 +190,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       map.getSource("countries")
       .setData(geojson);
-
     }
   }
 
@@ -267,11 +209,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       type: "fill",
       source: "countries",
       paint: {
-        "fill-color": [
-          "get",
-          "riskColor"
-        ],
-        "fill-opacity": 0.7
+        "fill-color": ["get", "color"],
+        "fill-opacity": 0.75
       }
     });
 
@@ -285,26 +224,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
 
-    await loadRiskData();
+    // checkbox
+    const checkbox = document.getElementById("colorToggle");
 
-    setupSearch();
+    if (checkbox) {
 
-    // =========================
-    // COLOR TOGGLE EVENT
-    // =========================
+      checkbox.addEventListener("change", (e) => {
 
-    document
-      .getElementById("colorToggle")
-      .addEventListener("change", () => {
+        colorsEnabled = e.target.checked;
 
-        applyRiskColors();
+        applyColors();
 
       });
+    }
 
+    await loadRisk();
+
+    setupSearch();
   });
 
   // =========================
-  // SEARCH SYSTEM
+  // SEARCH
   // =========================
 
   function setupSearch() {
@@ -325,11 +265,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       q = q.toLowerCase();
 
-      return geojson.features.filter(f =>
-        f.properties.name
+      return geojson.features
+        .filter(f =>
+          f.properties.name
           .toLowerCase()
           .includes(q)
-      ).slice(0, 8);
+        )
+        .slice(0, 8);
     }
 
     function highlight(f) {
@@ -367,9 +309,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       dropdown.innerHTML = "";
 
       if (!list.length) {
-
         dropdown.style.display = "none";
-
         return;
       }
 
@@ -408,13 +348,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           function add(c) {
 
             if (typeof c[0] === "number") {
-
               bounds.extend(c);
-
             } else {
-
               c.forEach(add);
-
             }
           }
 
@@ -437,7 +373,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (e.target !== input) {
 
         dropdown.style.display = "none";
-
       }
     });
   }
