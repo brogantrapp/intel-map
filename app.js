@@ -1,3 +1,4 @@
+
 document.addEventListener("DOMContentLoaded", async () => {
 
   // =========================
@@ -14,10 +15,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   map.addControl(new maplibregl.NavigationControl());
 
   // =========================
-  // HOME BUTTON (MAP CONTROL)
+  // HOME BUTTON (PROFESSIONAL)
   // =========================
 
   class HomeControl {
+
     onAdd(map) {
 
       this._map = map;
@@ -26,10 +28,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       container.className = "maplibregl-ctrl maplibregl-ctrl-group";
 
       const btn = document.createElement("button");
-      btn.innerHTML = "🏠";
+      btn.className = "home-control-btn";
       btn.title = "Reset View";
+      btn.innerHTML = "⌂"; // professional home icon
 
       btn.onclick = () => {
+
         map.flyTo({
           center: [0, 20],
           zoom: 1.8,
@@ -37,14 +41,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           pitch: 0,
           duration: 1000
         });
+
       };
 
       container.appendChild(btn);
+
       return container;
     }
 
     onRemove() {
-      this._container.remove();
+      this._container?.remove();
       this._map = undefined;
     }
   }
@@ -119,9 +125,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const geojson = await res.json();
 
-  let riskMap = {};
-  let colorsEnabled = true;
-
   map.on("load", () => {
 
     map.addSource("countries", {
@@ -153,7 +156,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // =========================
-  // SEARCH + DROPDOWN
+  // SEARCH SYSTEM
   // =========================
 
   function setupSearch() {
@@ -194,7 +197,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         type: "line",
         source: "highlight-src",
         paint: {
-          "line-color": "#bbbbbb",
+          "line-color": "#ffffff",
           "line-width": 3
         }
       });
