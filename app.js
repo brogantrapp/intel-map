@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
 
   // =========================
   // MAP
@@ -7,130 +7,153 @@ document.addEventListener("DOMContentLoaded", () => {
   const map = new maplibregl.Map({
     container: "map",
     style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-    center: [10, 20],
+    center: [0, 20],
     zoom: 1.8
   });
 
   map.addControl(new maplibregl.NavigationControl());
 
-  let geojsonData = null;
-  let riskMap = {};
-  let colorsEnabled = true;
-
   // =========================
-  // NORMALIZER
+  // HOME BUTTON (MAP CONTROL)
   // =========================
 
-  function norm(s) {
-    return (s || "")
-      .toLowerCase()
-      .replace(/\./g, "")
-      .trim();
+  class HomeControl {
+    onAdd(map) {
+
+      this._map = map;
+
+      const container = document.createElement("div");
+      container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+
+      const btn = document.createElement("button");
+      btn.innerHTML = "🏠";
+      btn.title = "Reset View";
+
+      btn.onclick = () => {
+        map.flyTo({
+          center: [0, 20],
+          zoom: 1.8,
+          bearing: 0,
+          pitch: 0,
+          duration: 1000
+        });
+      };
+
+      container.appendChild(btn);
+      return container;
+    }
+
+    onRemove() {
+      this._container.remove();
+      this._map = undefined;
+    }
   }
 
-  // =========================
-  // LOAD COUNTRIES
-  // =========================
-
-  async function loadCountries() {
-
-    const res = await fetch(
-      "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
-    );
-
-    geojsonData = await res.json();
-
-    map.addSource("countries", {
-      type: "geojson",
-      data: geojsonData
-    });
-
-    map.addLayer({
-      id: "countries-fill",
-      type: "fill",
-      source: "countries",
-      paint: {
-        "fill-color": "#2a2a2a",
-        "fill-opacity": 0.65
-      }
-    });
-
-    map.addLayer({
-      id: "countries-border",
-      type: "line",
-      source: "countries",
-      paint: {
-        "line-color": "#111",
-        "line-width": 0.7
-      }
-    });
-
-    await loadRisk();
-    setupSearch();
-  }
+  map.addControl(new HomeControl(), "top-right");
 
   // =========================
-  // LOAD RISK
+  // CLOCK
   // =========================
 
-  async function loadRisk() {
+  setInterval(() => {
+    document.getElementById("clockText").innerText =
+      new Date().toLocaleTimeString() +
+      " | " +
+      new Date().toLocaleDateString();
+  }, 1000);
+
+  // =========================
+  // NEWS
+  // =========================
+
+  async function loadNews() {
+
+    const panel = document.getElementById("newsPanel");
+
+    panel.innerHTML = "Loading news...";
 
     try {
 
       const res = await fetch(
-        "https://raw.githubusercontent.com/brogantrapp/intel-map/main/data/risk.json?t=" + Date.now()
+        "https://api.allorigins.win/raw?url=" +
+        encodeURIComponent("https://feeds.bbci.co.uk/news/world/rss.xml")
       );
 
-      riskMap = await res.json();
+      const text = await res.text();
 
-      applyColors();
+      const xml = new DOMParser().parseFromString(text, "text/xml");
+
+      const items = xml.querySelectorAll("item");
+
+      panel.innerHTML = "";
+
+      items.forEach((item, i) => {
+
+        if (i > 12) return;
+
+        const title = item.querySelector("title")?.textContent;
+        const link = item.querySelector("link")?.textContent;
+
+        const div = document.createElement("div");
+
+        div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
+
+        panel.appendChild(div);
+      });
 
     } catch (e) {
-      console.error("Risk failed:", e);
+      panel.innerHTML = "News unavailable";
     }
   }
 
+  loadNews();
+  setInterval(loadNews, 60000);
+
   // =========================
-  // COLORS
+  // WORLD DATA
   // =========================
 
-  function getColor(level) {
+  const res = await fetch(
+    "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
+  );
 
-    if (level === 1) return "#00aa55";
-    if (level === 2) return "#d4c000";
-    if (level === 3) return "#d97a00";
-    if (level === 4) return "#c0392b";
+  const geojson = await res.json();
 
-    return "#2a2a2a";
-  }
+  let riskMap = {};
+  let colorsEnabled = true;
 
-  function applyColors() {
+  map.on("load", () => {
 
-    if (!geojsonData) return;
-
-    const expr = ["match", ["get", "name"]];
-
-    geojsonData.features.forEach(f => {
-
-      const level = riskMap[norm(f.properties.name)] || 1;
-
-      expr.push(
-        f.properties.name,
-        colorsEnabled ? getColor(level) : "#2a2a2a"
-      );
+    map.addSource("countries", {
+      type: "geojson",
+      data: geojson
     });
 
-    expr.push("#2a2a2a");
+    map.addLayer({
+      id: "fill",
+      type: "fill",
+      source: "countries",
+      paint: {
+        "fill-color": "#2a2a2a",
+        "fill-opacity": 0.7
+      }
+    });
 
-    map.setPaintProperty(
-      "countries-fill",
-      "fill-color",
-      expr
-    );
-  }
+    map.addLayer({
+      id: "border",
+      type: "line",
+      source: "countries",
+      paint: {
+        "line-color": "#111",
+        "line-width": 0.8
+      }
+    });
+
+    setupSearch();
+  });
 
   // =========================
-  // SEARCH
+  // SEARCH + DROPDOWN
   // =========================
 
   function setupSearch() {
@@ -140,28 +163,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const dropdown = document.createElement("div");
     dropdown.className = "searchDropdown";
     dropdown.style.display = "none";
-
     document.body.appendChild(dropdown);
 
-    function getMatches(query) {
+    function matches(q) {
 
-      query = norm(query);
+      q = q.toLowerCase();
 
-      if (!query) return [];
-
-      return geojsonData.features.filter(f => {
-
-        const name = norm(f.properties.name);
-
-        return (
-          name.includes(query) ||
-          name.startsWith(query)
-        );
-
-      }).slice(0, 8);
+      return geojson.features.filter(f =>
+        f.properties.name.toLowerCase().includes(q)
+      ).slice(0, 8);
     }
 
-    function highlight(feature) {
+    function highlight(f) {
 
       if (map.getLayer("highlight")) {
         map.removeLayer("highlight");
@@ -173,7 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       map.addSource("highlight-src", {
         type: "geojson",
-        data: feature
+        data: f
       });
 
       map.addLayer({
@@ -191,11 +204,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const value = e.target.value;
 
-      const matches = getMatches(value);
+      const list = matches(value);
 
       dropdown.innerHTML = "";
 
-      if (!matches.length) {
+      if (!list.length) {
         dropdown.style.display = "none";
         return;
       }
@@ -205,10 +218,9 @@ document.addEventListener("DOMContentLoaded", () => {
       dropdown.style.left = rect.left + "px";
       dropdown.style.top = rect.bottom + "px";
 
-      matches.forEach(f => {
+      list.forEach(f => {
 
         const item = document.createElement("div");
-
         item.className = "searchItem";
         item.textContent = f.properties.name;
 
@@ -244,120 +256,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.addEventListener("click", e => {
-      if (e.target !== input) {
-        dropdown.style.display = "none";
-      }
+      if (e.target !== input) dropdown.style.display = "none";
     });
   }
-
-  // =========================
-  // NEWS
-  // =========================
-
-  async function loadNews() {
-
-    const panel = document.getElementById("newsPanel");
-
-    panel.innerHTML = "Loading news...";
-
-    try {
-
-      const proxy = "https://api.allorigins.win/raw?url=";
-      const url = "https://feeds.bbci.co.uk/news/world/rss.xml";
-
-      const res = await fetch(
-        proxy + encodeURIComponent(url)
-      );
-
-      const text = await res.text();
-
-      const xml = new DOMParser().parseFromString(
-        text,
-        "text/xml"
-      );
-
-      const items = xml.querySelectorAll("item");
-
-      panel.innerHTML = "";
-
-      items.forEach((item, i) => {
-
-        if (i > 12) return;
-
-        const title = item.querySelector("title")?.textContent;
-        const link = item.querySelector("link")?.textContent;
-
-        const div = document.createElement("div");
-
-        div.innerHTML = `
-          <a href="${link}" target="_blank">
-            ${title}
-          </a>
-        `;
-
-        panel.appendChild(div);
-      });
-
-    } catch (e) {
-
-      console.error(e);
-
-      panel.innerHTML = "News unavailable";
-    }
-  }
-
-  // =========================
-  // CLOCK
-  // =========================
-
-  function startClock() {
-
-    const el = document.getElementById("clockText");
-
-    setInterval(() => {
-
-      const now = new Date();
-
-      el.textContent =
-        now.toLocaleTimeString() +
-        " | " +
-        now.toLocaleDateString();
-
-    }, 1000);
-  }
-
-  // =========================
-  // TOGGLE
-  // =========================
-
-  document.getElementById("colorToggle")
-    .addEventListener("change", e => {
-
-      colorsEnabled = e.target.checked;
-      applyColors();
-    });
-
-  // =========================
-  // START
-  // =========================
-
-  map.on("load", loadCountries);
-
-  loadNews();
-  setInterval(loadNews, 60000);
-
-  startClock();
-
-
-  document.getElementById("homeBtn")
-.addEventListener("click", () => {
-
-  map.flyTo({
-    center: [0, 20],
-    zoom: 1.8,
-    duration: 1200
-  });
-
-});
 
 });
