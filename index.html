@@ -1,18 +1,27 @@
- <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet"/>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-  <link rel="stylesheet" href="style.css">
+<title>Intel Map</title>
+
+<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
+<link rel="stylesheet" href="style.css"/>
+</head>
+
+<body>
 
 <div id="topbar">
-
- <button id="homeBtn">HOME</button>
 
   <input id="searchBox" placeholder="Search country..." />
 
   <div id="clockText"></div>
 
-  <label id="toggleWrap">
-    <input type="checkbox" id="colorToggle" checked>
+  <label style="color:#aaa;font-size:13px;">
+    <input type="checkbox" id="colorToggle" checked />
     Risk Colors
   </label>
 
@@ -26,3 +35,6 @@
 </div>
 
 <script src="app.js"></script>
+
+</body>
+</html>
