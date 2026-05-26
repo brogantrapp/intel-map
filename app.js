@@ -348,4 +348,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   startClock();
 
+
+  document.getElementById("homeBtn")
+.addEventListener("click", () => {
+
+  map.flyTo({
+    center: [0, 20],
+    zoom: 1.8,
+    duration: 1200
+  });
+
+});
+
 });
