@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         map.flyTo({
           center: [0, 20],
-          zoom: 1.8,
+          zoom: 1.0,
           bearing: 0,
           pitch: 0,
           duration: 1000
