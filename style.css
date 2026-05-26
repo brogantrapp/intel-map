@@ -125,7 +125,7 @@ html, body {
 ========================= */
 
 .maplibregl-ctrl-top-right {
-  right: 260px !important; /* pushes controls away from sidebar */
+  right: 0px !important; /* pushes controls away from sidebar */
   top: 50px !important;    /* below topbar */
 }
 
