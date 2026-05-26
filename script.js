@@ -293,25 +293,22 @@ async function loadNews() {
 //=========================
 
 
+
 function setupSearch(map, geojsonData) {
 
   const input = document.getElementById("searchBox");
-
   if (!input) {
-    console.error("searchBox not found in HTML");
+    console.error("searchBox not found");
     return;
   }
 
-  // normalize function
   function norm(s) {
     return (s || "").toLowerCase().trim();
   }
 
-  // find best match (autocorrect-style)
   function findBestMatch(query) {
 
     query = norm(query);
-
     if (!query) return null;
 
     let bestMatch = null;
@@ -320,8 +317,6 @@ function setupSearch(map, geojsonData) {
     for (const feature of geojsonData.features) {
 
       const name = norm(feature.properties.name);
-
-      // simple scoring system (partial match)
       let score = 0;
 
       if (name === query) score = 100;
@@ -338,16 +333,11 @@ function setupSearch(map, geojsonData) {
     return bestMatch;
   }
 
-  // highlight layer state
-  let highlightId = null;
-
   function highlightCountry(feature) {
 
     if (!feature) return;
 
-    const name = feature.properties.name;
-
-    // remove old highlight layer if exists
+    // remove old highlight if exists
     if (map.getLayer("highlight-layer")) {
       map.removeLayer("highlight-layer");
       map.removeSource("highlight-source");
@@ -363,33 +353,24 @@ function setupSearch(map, geojsonData) {
       type: "line",
       source: "highlight-source",
       paint: {
-        "line-color": "#00ffff",
-        "line-width": 3
+        "line-color": "#888888",   // 👈 GRAY instead of cyan
+        "line-width": 2
       }
     });
   }
 
   input.addEventListener("input", (e) => {
 
-    const value = e.target.value;
-
-    const match = findBestMatch(value);
+    const match = findBestMatch(e.target.value);
 
     if (!match) return;
 
     highlightCountry(match);
 
-    // zoom to country
-    const coords = match.geometry.coordinates;
-
-    try {
-      map.flyTo({
-        center: [0, 20],
-        zoom: 3
-      });
-    } catch (err) {
-      console.error("Zoom error:", err);
-    }
+    map.flyTo({
+      center: [0, 20],
+      zoom: 3
+    });
 
   });
 }
