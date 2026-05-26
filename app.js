@@ -14,7 +14,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   map.addControl(new maplibregl.NavigationControl());
 
   // =========================
-  // HOME BUTTON (PROFESSIONAL)
+  // MOVE MAP CONTROLS RIGHT
+  // =========================
+
+  const style = document.createElement("style");
+
+  style.innerHTML = `
+    .maplibregl-ctrl-top-right {
+      right: 285px !important;
+      top: 70px !important;
+    }
+  `;
+
+  document.head.appendChild(style);
+
+  // =========================
+  // HOME BUTTON
   // =========================
 
   class HomeControl {
@@ -27,9 +42,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       container.className = "maplibregl-ctrl maplibregl-ctrl-group";
 
       const btn = document.createElement("button");
+
       btn.className = "home-control-btn";
+
       btn.title = "Reset View";
+
       btn.innerHTML = "⌂";
+
+      btn.style.background = "#e6e6e6";
+      btn.style.color = "#111";
 
       btn.onclick = () => {
 
@@ -61,11 +82,31 @@ document.addEventListener("DOMContentLoaded", async () => {
   // =========================
 
   setInterval(() => {
+
     document.getElementById("clockText").innerText =
       new Date().toLocaleTimeString() +
       " | " +
       new Date().toLocaleDateString();
+
   }, 1000);
+
+  // =========================
+  // COLOR TOGGLE CHECKBOX
+  // =========================
+
+  const topbar = document.getElementById("topbar");
+
+  const toggleWrap = document.createElement("label");
+
+  toggleWrap.style.color = "#aaa";
+  toggleWrap.style.fontSize = "13px";
+
+  toggleWrap.innerHTML = `
+    <input type="checkbox" id="colorToggle" checked />
+    Risk Colors
+  `;
+
+  topbar.appendChild(toggleWrap);
 
   // =========================
   // NEWS
@@ -86,7 +127,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const text = await res.text();
 
-      const xml = new DOMParser().parseFromString(text, "text/xml");
+      const xml =
+        new DOMParser().parseFromString(text, "text/xml");
 
       const items = xml.querySelectorAll("item");
 
@@ -96,22 +138,29 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (i > 12) return;
 
-        const title = item.querySelector("title")?.textContent;
-        const link = item.querySelector("link")?.textContent;
+        const title =
+          item.querySelector("title")?.textContent;
+
+        const link =
+          item.querySelector("link")?.textContent;
 
         const div = document.createElement("div");
 
-        div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
+        div.innerHTML =
+          `<a href="${link}" target="_blank">${title}</a>`;
 
         panel.appendChild(div);
       });
 
     } catch (e) {
+
       panel.innerHTML = "News unavailable";
+
     }
   }
 
   loadNews();
+
   setInterval(loadNews, 60000);
 
   // =========================
@@ -134,9 +183,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
 
-      const res = await fetch("./data/risk.json");
+      const res =
+        await fetch("./data/risk.json");
 
-      riskMap = await res.json();
+      riskMap =
+        await res.json();
 
       console.log("✅ risk.json loaded");
 
@@ -145,10 +196,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (e) {
 
       console.error("❌ Risk load failed");
+
       console.error(e);
 
     }
   }
+
+  // =========================
+  // RISK COLORS
+  // =========================
 
   function getRiskColor(level) {
 
@@ -170,6 +226,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function applyRiskColors() {
 
+    const enabled =
+      document.getElementById("colorToggle")?.checked;
+
     geojson.features.forEach(f => {
 
       const name =
@@ -179,13 +238,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         riskMap[name] || 1;
 
       f.properties.riskColor =
-        getRiskColor(level);
+        enabled
+          ? getRiskColor(level)
+          : "#2a2a2a";
     });
 
     if (map.getSource("countries")) {
-      map.getSource("countries").setData(geojson);
+
+      map.getSource("countries")
+      .setData(geojson);
+
     }
   }
+
+  // =========================
+  // MAP LOAD
+  // =========================
 
   map.on("load", async () => {
 
@@ -220,6 +288,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadRiskData();
 
     setupSearch();
+
+    // =========================
+    // COLOR TOGGLE EVENT
+    // =========================
+
+    document
+      .getElementById("colorToggle")
+      .addEventListener("change", () => {
+
+        applyRiskColors();
+
+      });
+
   });
 
   // =========================
@@ -228,11 +309,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function setupSearch() {
 
-    const input = document.getElementById("searchBox");
+    const input =
+      document.getElementById("searchBox");
 
-    const dropdown = document.createElement("div");
+    const dropdown =
+      document.createElement("div");
+
     dropdown.className = "searchDropdown";
+
     dropdown.style.display = "none";
+
     document.body.appendChild(dropdown);
 
     function matches(q) {
@@ -240,7 +326,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       q = q.toLowerCase();
 
       return geojson.features.filter(f =>
-        f.properties.name.toLowerCase().includes(q)
+        f.properties.name
+          .toLowerCase()
+          .includes(q)
       ).slice(0, 8);
     }
 
@@ -279,35 +367,54 @@ document.addEventListener("DOMContentLoaded", async () => {
       dropdown.innerHTML = "";
 
       if (!list.length) {
+
         dropdown.style.display = "none";
+
         return;
       }
 
-      const rect = input.getBoundingClientRect();
+      const rect =
+        input.getBoundingClientRect();
 
-      dropdown.style.left = rect.left + "px";
-      dropdown.style.top = rect.bottom + "px";
+      dropdown.style.left =
+        rect.left + "px";
+
+      dropdown.style.top =
+        rect.bottom + "px";
 
       list.forEach(f => {
 
-        const item = document.createElement("div");
+        const item =
+          document.createElement("div");
+
         item.className = "searchItem";
-        item.textContent = f.properties.name;
+
+        item.textContent =
+          f.properties.name;
 
         item.onclick = () => {
 
-          input.value = f.properties.name;
-          dropdown.style.display = "none";
+          input.value =
+            f.properties.name;
+
+          dropdown.style.display =
+            "none";
 
           highlight(f);
 
-          const bounds = new maplibregl.LngLatBounds();
+          const bounds =
+            new maplibregl.LngLatBounds();
 
           function add(c) {
+
             if (typeof c[0] === "number") {
+
               bounds.extend(c);
+
             } else {
+
               c.forEach(add);
+
             }
           }
 
@@ -326,7 +433,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     document.addEventListener("click", e => {
-      if (e.target !== input) dropdown.style.display = "none";
+
+      if (e.target !== input) {
+
+        dropdown.style.display = "none";
+
+      }
     });
   }
 
