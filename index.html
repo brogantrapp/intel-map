@@ -1,39 +1,39 @@
+:::writing{variant="standard" id="48271"}
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
+  <meta charset="UTF-8">
   <title>Intel Map</title>
 
-  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet"/>
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-  <div id="topbar">
+<div id="topbar">
 
-    <span id="clockText">Loading...</span>
+  <input id="searchBox" placeholder="Search country..." />
 
-    <!-- SEARCH BAR -->
-    <input id="searchBox" type="text" placeholder="Search country..." />
+  <div id="clockText"></div>
 
-    <label class="toggle">
-      Map Colors
-      <input type="checkbox" id="colorToggle" checked>
-    </label>
+  <label id="toggleWrap">
+    <input type="checkbox" id="colorToggle" checked>
+    Risk Colors
+  </label>
 
-  </div>
+</div>
 
-  <div id="container">
-    <div id="map"></div>
-    <div id="newsPanel"></div>
-  </div>
+<div id="map"></div>
 
-  <script src="script.js"></script>
+<div id="sidebar">
+  <h2>World Intel Feed</h2>
+  <div id="newsPanel"></div>
+</div>
+
+<script src="app.js"></script>
 
 </body>
 </html>
+:::
