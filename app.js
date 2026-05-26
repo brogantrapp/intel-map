@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", async () => {
 
   // =========================
@@ -30,7 +29,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const btn = document.createElement("button");
       btn.className = "home-control-btn";
       btn.title = "Reset View";
-      btn.innerHTML = "⌂"; // professional home icon
+      btn.innerHTML = "⌂";
 
       btn.onclick = () => {
 
@@ -125,7 +124,70 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const geojson = await res.json();
 
-  map.on("load", () => {
+  // =========================
+  // RISK DATA
+  // =========================
+
+  let riskMap = {};
+
+  async function loadRiskData() {
+
+    try {
+
+      const res = await fetch("./data/risk.json");
+
+      riskMap = await res.json();
+
+      console.log("✅ risk.json loaded");
+
+      applyRiskColors();
+
+    } catch (e) {
+
+      console.error("❌ Risk load failed");
+      console.error(e);
+
+    }
+  }
+
+  function getRiskColor(level) {
+
+    switch(level) {
+
+      case 4:
+        return "#ff0000";
+
+      case 3:
+        return "#ff8800";
+
+      case 2:
+        return "#ffee00";
+
+      default:
+        return "#00aa44";
+    }
+  }
+
+  function applyRiskColors() {
+
+    geojson.features.forEach(f => {
+
+      const name =
+        f.properties.name.toLowerCase();
+
+      const level =
+        riskMap[name] || 1;
+
+      f.properties.riskColor =
+        getRiskColor(level);
+    });
+
+    if (map.getSource("countries")) {
+      map.getSource("countries").setData(geojson);
+    }
+  }
+
+  map.on("load", async () => {
 
     map.addSource("countries", {
       type: "geojson",
@@ -137,7 +199,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       type: "fill",
       source: "countries",
       paint: {
-        "fill-color": "#2a2a2a",
+        "fill-color": [
+          "get",
+          "riskColor"
+        ],
         "fill-opacity": 0.7
       }
     });
@@ -151,6 +216,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         "line-width": 0.8
       }
     });
+
+    await loadRiskData();
 
     setupSearch();
   });
