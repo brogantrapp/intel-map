@@ -6,7 +6,7 @@ async function run() {
 
     console.log("🌍 Starting scraper...");
 
-    const res = await fetch("https://restcountries.com/v3.1/all");
+    const res = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json");
 
     if (!res.ok) {
       throw new Error("API request failed: " + res.status);
