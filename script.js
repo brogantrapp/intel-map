@@ -17,19 +17,18 @@ document.addEventListener("DOMContentLoaded", () => {
   let geojsonData = null;
 
   // =========================
-  // SAFE NORMALIZER
+  // NORMALIZE
   // =========================
 
   function norm(s) {
     return (s || "")
       .toLowerCase()
       .replace(/\./g, "")
-      .replace(/\s+/g, " ")
       .trim();
   }
 
   // =========================
-  // LOAD WORLD DATA
+  // LOAD MAP DATA
   // =========================
 
   async function loadWorld() {
@@ -50,7 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
       type: "fill",
       source: "countries",
       paint: {
-        "fill-color": "#2c2c2c",
+        "fill-color": "#2a2a2a",
         "fill-opacity": 0.6
       }
     });
@@ -61,56 +60,23 @@ document.addEventListener("DOMContentLoaded", () => {
       source: "countries",
       paint: {
         "line-color": "#111",
-        "line-width": 0.7
+        "line-width": 0.8
       }
     });
 
-    setupSearch(); // IMPORTANT: only runs AFTER data loads
+    setupSearch();
   }
 
   // =========================
-  // AUTOCORRECT MATCH ENGINE
+  // HIGHLIGHT (ONLY ON CLICK)
   // =========================
 
-  function findBestMatch(query) {
-
-    query = norm(query);
-    if (!query || !geojsonData) return null;
-
-    let best = null;
-    let bestScore = 0;
-
-    for (const f of geojsonData.features) {
-
-      const name = norm(f.properties.name);
-
-      let score = 0;
-
-      if (name === query) score = 100;
-      else if (name.includes(query)) score = 80;
-      else if (query.includes(name)) score = 60;
-      else if (name.startsWith(query)) score = 70;
-
-      if (score > bestScore) {
-        bestScore = score;
-        best = f;
-      }
-    }
-
-    return best;
-  }
-
-  // =========================
-  // HIGHLIGHT SYSTEM
-  // =========================
-
-  function highlightCountry(feature) {
+  function highlight(feature) {
 
     if (!feature) return;
 
-    // remove old highlight safely
-    if (map.getLayer("highlight-line")) {
-      map.removeLayer("highlight-line");
+    if (map.getLayer("highlight")) {
+      map.removeLayer("highlight");
     }
 
     if (map.getSource("highlight-src")) {
@@ -123,18 +89,45 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     map.addLayer({
-      id: "highlight-line",
+      id: "highlight",
       type: "line",
       source: "highlight-src",
       paint: {
-        "line-color": "#aaaaaa",   // gray highlight
-        "line-width": 2.5
+        "line-color": "#aaaaaa",
+        "line-width": 3
       }
     });
   }
 
   // =========================
-  // SEARCH SYSTEM
+  // AUTOCOMPLETE ENGINE
+  // =========================
+
+  function getMatches(query) {
+
+    query = norm(query);
+    if (!query || !geojsonData) return [];
+
+    const results = [];
+
+    for (const f of geojsonData.features) {
+
+      const name = norm(f.properties.name);
+
+      if (
+        name.includes(query) ||
+        query.includes(name) ||
+        name.startsWith(query)
+      ) {
+        results.push(f);
+      }
+    }
+
+    return results.slice(0, 6); // limit dropdown
+  }
+
+  // =========================
+  // SEARCH UI (DROPDOWN)
   // =========================
 
   function setupSearch() {
@@ -142,26 +135,132 @@ document.addEventListener("DOMContentLoaded", () => {
     const input = document.getElementById("searchBox");
 
     if (!input) {
-      console.error("searchBox not found in HTML");
+      console.error("searchBox missing");
       return;
     }
 
+    // create dropdown
+    const dropdown = document.createElement("div");
+    dropdown.style.position = "absolute";
+    dropdown.style.background = "#111";
+    dropdown.style.border = "1px solid #333";
+    dropdown.style.zIndex = "9999";
+    dropdown.style.width = "200px";
+    dropdown.style.maxHeight = "200px";
+    dropdown.style.overflowY = "auto";
+    dropdown.style.display = "none";
+
+    document.body.appendChild(dropdown);
+
     input.addEventListener("input", (e) => {
 
-      const value = e.target.value;
-      const match = findBestMatch(value);
+      const rect = input.getBoundingClientRect();
+      dropdown.style.left = rect.left + "px";
+      dropdown.style.top = rect.bottom + "px";
 
-      if (!match) return;
+      const matches = getMatches(e.target.value);
 
-      // highlight border
-      highlightCountry(match);
+      dropdown.innerHTML = "";
 
-      // zoom to world (simple safe version)
-      map.fitBounds([[-180, -85], [180, 85]], {
-        padding: 50,
-        duration: 800
+      if (matches.length === 0) {
+        dropdown.style.display = "none";
+        return;
+      }
+
+      matches.forEach(f => {
+
+        const div = document.createElement("div");
+
+        div.textContent = f.properties.name;
+        div.style.padding = "6px";
+        div.style.cursor = "pointer";
+        div.style.color = "#ccc";
+
+        div.onmouseenter = () => {
+          div.style.background = "#222";
+        };
+
+        div.onmouseleave = () => {
+          div.style.background = "transparent";
+        };
+
+        div.onclick = () => {
+
+          input.value = f.properties.name;
+          dropdown.style.display = "none";
+
+          highlight(f);
+
+          map.fitBounds([[-180, -85], [180, 85]], {
+            padding: 60,
+            duration: 800
+          });
+        };
+
+        dropdown.appendChild(div);
       });
+
+      dropdown.style.display = "block";
     });
+
+    document.addEventListener("click", (e) => {
+      if (e.target !== input) {
+        dropdown.style.display = "none";
+      }
+    });
+  }
+
+  // =========================
+  // NEWS (FIXED + BIGGER + RELIABLE)
+  // =========================
+
+  async function loadNews() {
+
+    const panel = document.getElementById("newsPanel");
+
+    if (!panel) return;
+
+    panel.style.fontSize = "14px";
+    panel.style.lineHeight = "1.4";
+    panel.innerHTML = "<div style='color:#aaa'>Loading news...</div>";
+
+    try {
+
+      const proxy = "https://api.allorigins.win/raw?url=";
+      const url = "https://feeds.bbci.co.uk/news/world/rss.xml";
+
+      const res = await fetch(proxy + encodeURIComponent(url));
+      const text = await res.text();
+
+      const xml = new DOMParser().parseFromString(text, "text/xml");
+      const items = xml.querySelectorAll("item");
+
+      panel.innerHTML = "";
+
+      items.forEach((item, i) => {
+
+        if (i > 12) return;
+
+        const title = item.querySelector("title")?.textContent;
+        const link = item.querySelector("link")?.textContent;
+
+        const div = document.createElement("div");
+        div.style.padding = "10px";
+        div.style.borderBottom = "1px solid #222";
+
+        div.innerHTML = `
+          <a href="${link}" target="_blank" style="color:#9ecbff; text-decoration:none;">
+            ${title}
+          </a>
+        `;
+
+        panel.appendChild(div);
+      });
+
+    } catch (e) {
+      console.error("News failed:", e);
+      panel.innerHTML = "<div style='color:red'>News unavailable</div>";
+    }
   }
 
   // =========================
@@ -169,5 +268,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
 
   map.on("load", loadWorld);
+
+  loadNews();
+  setInterval(loadNews, 60000);
 
 });
