@@ -136,3 +136,25 @@ html, body {
   background: #111 !important;
   color: #ccc !important;
 }
+
+
+#homeBtn {
+
+  padding: 8px 14px;
+
+  background: #1b1d22;
+
+  border: 1px solid #333;
+
+  color: #ccc;
+
+  cursor: pointer;
+
+  border-radius: 4px;
+
+  font-weight: bold;
+}
+
+#homeBtn:hover {
+  background: #2a2d33;
+}
