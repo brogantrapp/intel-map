@@ -1,181 +1,236 @@
+// =========================
+// MAP
+// =========================
 
-function setupSearch(map, geojsonData) {
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  center: [10, 25],
+  zoom: 2
+});
 
-  const input = document.getElementById("searchBox");
-  if (!input) {
-    console.error("searchBox missing");
-    return;
-  }
+map.addControl(new maplibregl.NavigationControl());
 
-  function norm(s) {
-    return (s || "")
-      .toLowerCase()
-      .replace(/\./g, "")
-      .trim();
-  }
 
-  // =========================
-  // FIND MATCHES (AUTOCOMPLETE)
-  // =========================
+// =========================
+// CLOCK
+// =========================
 
-  function getMatches(query) {
+function updateClock() {
 
-    query = norm(query);
-    if (!query || !geojsonData) return [];
+  const now = new Date();
 
-    const results = [];
+  const est = new Date(
+    now.toLocaleString("en-US", {
+      timeZone: "America/New_York"
+    })
+  );
 
-    for (const f of geojsonData.features) {
-
-      const name = norm(f.properties.name);
-
-      if (
-        name.includes(query) ||
-        query.includes(name) ||
-        name.startsWith(query)
-      ) {
-        results.push(f);
-      }
-    }
-
-    return results.slice(0, 6);
-  }
-
-  // =========================
-  // HIGHLIGHT LAYER (SAFE)
-  // =========================
-
-  function highlight(feature) {
-
-    if (!feature) return;
-
-    if (map.getLayer("highlight-layer")) {
-      map.removeLayer("highlight-layer");
-    }
-
-    if (map.getSource("highlight-source")) {
-      map.removeSource("highlight-source");
-    }
-
-    map.addSource("highlight-source", {
-      type: "geojson",
-      data: feature
-    });
-
-    map.addLayer({
-      id: "highlight-layer",
-      type: "line",
-      source: "highlight-source",
-      paint: {
-        "line-color": "#aaaaaa",
-        "line-width": 2.5
-      }
-    });
-  }
-
-  // =========================
-  // DROPDOWN UI
-  // =========================
-
-  const dropdown = document.createElement("div");
-
-  dropdown.style.position = "absolute";
-  dropdown.style.background = "#111";
-  dropdown.style.border = "1px solid #333";
-  dropdown.style.zIndex = "9999";
-  dropdown.style.width = "220px";
-  dropdown.style.maxHeight = "220px";
-  dropdown.style.overflowY = "auto";
-  dropdown.style.display = "none";
-  dropdown.style.fontSize = "13px";
-
-  document.body.appendChild(dropdown);
-
-  // =========================
-  // INPUT LISTENER
-  // =========================
-
-  input.addEventListener("input", (e) => {
-
-    const rect = input.getBoundingClientRect();
-
-    dropdown.style.left = rect.left + "px";
-    dropdown.style.top = rect.bottom + "px";
-
-    const matches = getMatches(e.target.value);
-
-    dropdown.innerHTML = "";
-
-    if (matches.length === 0) {
-      dropdown.style.display = "none";
-      return;
-    }
-
-    matches.forEach(f => {
-
-      const div = document.createElement("div");
-
-      div.textContent = f.properties.name;
-
-      div.style.padding = "8px";
-      div.style.cursor = "pointer";
-      div.style.color = "#ccc";
-
-      div.onmouseenter = () => {
-        div.style.background = "#222";
-      };
-
-      div.onmouseleave = () => {
-        div.style.background = "transparent";
-      };
-
-      // =========================
-      // CLICK = SELECT + ZOOM
-      // =========================
-
-      div.onclick = () => {
-
-        input.value = f.properties.name;
-        dropdown.style.display = "none";
-
-        highlight(f);
-
-        // =========================
-        // REAL COUNTRY ZOOM FIX
-        // =========================
-
-        const coords = f.geometry.coordinates;
-        let bounds = new maplibregl.LngLatBounds();
-
-        function add(c) {
-          if (typeof c[0] === "number") {
-            bounds.extend(c);
-          } else {
-            c.forEach(add);
-          }
-        }
-
-        add(coords);
-
-        map.fitBounds(bounds, {
-          padding: 60,
-          duration: 900
-        });
-      };
-
-      dropdown.appendChild(div);
-    });
-
-    dropdown.style.display = "block";
+  const time = est.toLocaleTimeString("en-US");
+  const date = est.toLocaleDateString("en-US", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric"
   });
 
-  // =========================
-  // CLOSE DROPDOWN ON OUTSIDE CLICK
-  // =========================
+  document.getElementById("clockText").textContent =
+    `EST ${time} | ${date}`;
+}
 
-  document.addEventListener("click", (e) => {
-    if (e.target !== input) {
-      dropdown.style.display = "none";
+setInterval(updateClock, 1000);
+updateClock();
+
+
+// =========================
+// SEARCH FUNCTION
+// =========================
+
+const countryCoords = {
+  "united states of america": [-98, 39],
+  "canada": [-106, 56],
+  "mexico": [-102, 23],
+  "brazil": [-51, -10],
+  "united kingdom": [-3, 55],
+  "france": [2, 46],
+  "germany": [10, 51],
+  "russia": [105, 61],
+  "china": [104, 35],
+  "india": [78, 22],
+  "japan": [138, 36],
+  "australia": [133, -25],
+  "iran": [53, 32],
+  "ukraine": [31, 49]
+};
+
+function setupSearch() {
+
+  const box = document.getElementById("searchBox");
+
+  box.addEventListener("keydown", (e) => {
+
+    if (e.key !== "Enter") return;
+
+    const query = box.value.toLowerCase().trim();
+
+    const coords = countryCoords[query];
+
+    if (coords) {
+
+      map.flyTo({
+        center: coords,
+        zoom: 4
+      });
+
+    } else {
+
+      alert("Country not found in database");
     }
+  });
+}
+
+setupSearch();
+
+
+// =========================
+// TOGGLE
+// =========================
+
+let colorsEnabled = true;
+
+document.getElementById("colorToggle").addEventListener("change", (e) => {
+  colorsEnabled = e.target.checked;
+  updateColors();
+});
+
+function updateColors() {
+
+  map.setPaintProperty(
+    "countries-fill",
+    "fill-color",
+    colorsEnabled ? [
+
+      "match",
+      ["get", "name"],
+
+      "Russia", "#7a1f1f",
+      "Ukraine", "#7a1f1f",
+      "Iran", "#7a1f1f",
+
+      "China", "#8a6a1f",
+      "United States of America", "#8a6a1f",
+      "India", "#8a6a1f",
+
+      "Canada", "#1f5a3a",
+      "France", "#1f5a3a",
+      "Germany", "#1f5a3a",
+      "United Kingdom", "#1f5a3a",
+
+      "#1c1c1c"
+
+    ] : "#2b2b2b"
+  );
+}
+
+
+// =========================
+// NEWS (SAFE RSS)
+// =========================
+
+const feeds = [
+  "https://feeds.bbci.co.uk/news/world/rss.xml",
+  "https://rss.cnn.com/rss/edition_world.rss",
+  "https://www.reuters.com/rssFeed/worldNews"
+];
+
+const rssProxy = "https://api.rss2json.com/v1/api.json?rss_url=";
+
+async function loadNews() {
+
+  const panel = document.getElementById("newsPanel");
+
+  panel.innerHTML = "<h3>LIVE NEWS</h3>";
+
+  let all = [];
+
+  for (const feed of feeds) {
+
+    try {
+
+      const res = await fetch(rssProxy + encodeURIComponent(feed));
+      const data = await res.json();
+
+      if (data.items) {
+
+        all.push(...data.items.map(i => ({
+          title: i.title,
+          link: i.link,
+          source: data.feed?.title || "News"
+        })));
+      }
+
+    } catch (e) {
+      console.log("Feed failed:", feed);
+    }
+  }
+
+  all.slice(0, 12).forEach(a => {
+
+    const div = document.createElement("div");
+    div.className = "news-item";
+
+    div.innerHTML = `
+      <div class="source-label">${a.source}</div>
+      <a href="${a.link}" target="_blank">${a.title}</a>
+    `;
+
+    panel.appendChild(div);
+
+  });
+}
+
+loadNews();
+setInterval(loadNews, 60000);
+
+
+// =========================
+// COUNTRIES
+// =========================
+
+map.on("load", async () => {
+
+  const res = await fetch(
+    "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
+  );
+
+  const geo = await res.json();
+
+  map.addSource("countries", {
+    type: "geojson",
+    data: geo
+  });
+
+  map.addLayer({
+    id: "countries-fill",
+    type: "fill",
+    source: "countries",
+    paint: {
+      "fill-color": "#1c1c1c",
+      "fill-opacity": 0.55
+    }
+  });
+
+  map.addLayer({
+    id: "countries-border",
+    type: "line",
+    source: "countries",
+    paint: {
+      "line-color": "#555",
+      "line-width": 0.7
+    }
+  });
+
+  updateColors();
+});
   });
 }
