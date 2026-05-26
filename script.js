@@ -103,7 +103,7 @@ async function loadAdvisories() {
   try {
 
     const url =
-      "https://raw.githubusercontent.com/YOUR_USERNAME/world-risk-map/main/data/risk.json";
+      "https://raw.githubusercontent.com/brogantrapp/world-risk-map/main/data/risk.json";
 
     const res = await fetch(url);
 
