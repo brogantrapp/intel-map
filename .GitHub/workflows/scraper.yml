@@ -1,83 +1,37 @@
-import fs from "fs";
+name: Update Risk Data
 
-const BASE_URL =
-  "https://travel.state.gov/content/travel/en/traveladvisories/traveladvisories.html";
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"
 
-function norm(s) {
-  return (s || "").toLowerCase().trim();
-}
+permissions:
+  contents: write
 
-function levelFromText(text) {
-  if (!text) return null;
+jobs:
+  update-risk:
+    runs-on: ubuntu-latest
 
-  if (text.includes("Level 4")) return 4;
-  if (text.includes("Level 3")) return 3;
-  if (text.includes("Level 2")) return 2;
-  if (text.includes("Level 1")) return 1;
+    steps:
 
-  return null;
-}
+      - name: Checkout
+        uses: actions/checkout@v4
 
-// simple HTML fetch helper
-async function fetchHTML(url) {
-  const res = await fetch(url);
-  return await res.text();
-}
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-async function scrapeAdvisories() {
+      - name: Run scraper
+        run: node scraper.js
 
-  const html = await fetchHTML(BASE_URL);
+      - name: Commit updated risk.json
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
 
-  // extract links to country pages
-  const regex = /href="(\/content\/travel\/en\/traveladvisories\/traveladvisories\/.*?\.html)"/g;
+          git add data/risk.json
 
-  const matches = [...html.matchAll(regex)];
+          git commit -m "Auto update risk data" || echo "No changes"
 
-  const links = [...new Set(matches.map(m => m[1]))];
-
-  const risk = {};
-
-  for (const link of links) {
-
-    try {
-      const url = "https://travel.state.gov" + link;
-      const page = await fetchHTML(url);
-
-      // country name
-      const nameMatch = page.match(/<h1[^>]*>(.*?)<\/h1>/);
-      const country = nameMatch ? nameMatch[1].replace(/<\/?[^>]+(>|$)/g, "").trim() : null;
-
-      const levelMatch = page.match(/Level\s?[1-4]/i);
-      const level = levelFromText(levelMatch ? levelMatch[0] : "");
-
-      if (country && level) {
-        risk[country] = level;
-        console.log(`✔ ${country}: ${level}`);
-      }
-
-    } catch (e) {
-      console.log("failed:", link);
-    }
-  }
-
-  return risk;
-}
-
-async function run() {
-
-  try {
-    const risk = await scrapeAdvisories();
-
-    fs.writeFileSync(
-      "./data/risk.json",
-      JSON.stringify(risk, null, 2)
-    );
-
-    console.log("✅ DONE:", Object.keys(risk).length, "countries");
-
-  } catch (e) {
-    console.error("❌ scraper failed:", e);
-  }
-}
-
-run();
+          git push
