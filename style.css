@@ -89,3 +89,8 @@ html, body {
 .searchItem:hover {
   background: #222;
 }
+
+
+.maplibregl-ctrl-top-right {
+  top: 70px !important;  /* pushes controls BELOW topbar */
+}
