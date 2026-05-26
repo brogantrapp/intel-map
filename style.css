@@ -10,7 +10,6 @@ html, body {
   color: #d4d4d4;
 }
 
-/* TOP BAR */
 #topbar {
   position: absolute;
   top: 0;
@@ -32,16 +31,12 @@ html, body {
   z-index: 10;
 }
 
-/* SEARCH */
-#searchWrapper {
-  position: relative;
-}
-
+/* SEARCH BOX */
 #searchBox {
   padding: 5px 10px;
 
   background: #1a1a1a;
-  color: white;
+  color: #fff;
 
   border: 1px solid #333;
   border-radius: 5px;
@@ -49,40 +44,18 @@ html, body {
   outline: none;
 }
 
-/* AUTOCOMPLETE BOX */
-#suggestions {
-  position: absolute;
-  top: 32px;
-  left: 0;
-
-  width: 220px;
-
-  background: #111;
-  border: 1px solid #333;
-
-  max-height: 200px;
-  overflow-y: auto;
-
-  display: none;
-  z-index: 999;
-}
-
-.suggestion {
-  padding: 8px;
-  cursor: pointer;
-  font-size: 13px;
-
-  border-bottom: 1px solid #222;
-}
-
-.suggestion:hover {
-  background: #1e1e1e;
+#searchBox::placeholder {
+  color: #777;
 }
 
 /* TOGGLE */
 .toggle {
   font-size: 12px;
   color: #ccc;
+}
+
+.toggle input {
+  margin-left: 6px;
 }
 
 /* LAYOUT */
@@ -100,52 +73,30 @@ html, body {
 
 /* NEWS */
 #newsPanel {
-  font-family: system-ui, sans-serif;
-  font-size: 13px;
-  color: #cfefff;
+  flex: 1;
+  background: #0d0d0d;
+  border-left: 1px solid #222;
+
+  overflow-y: auto;
+  padding: 12px;
 }
 
-/* each news item container */
-#newsPanel div {
-  padding: 10px 8px;
-  margin-bottom: 6px;
-
-  background: rgba(0, 255, 255, 0.03);
-  border-left: 2px solid rgba(0, 255, 255, 0.3);
-
-  border-radius: 6px;
-
-  transition: all 0.2s ease;
-}
-
-/* hover effect */
-#newsPanel div:hover {
-  background: rgba(0, 255, 255, 0.08);
-  border-left: 2px solid #00ffff;
-  transform: translateX(2px);
-}
-
-/* links */
-#newsPanel a {
-  color: #9be7ff;
-  text-decoration: none;
-  display: block;
-  line-height: 1.3;
-}
-
-/* hover link glow */
-#newsPanel a:hover {
-  color: #00ffff;
-  text-shadow: 0 0 6px rgba(0, 255, 255, 0.5);
-}
-
-/* section header (if you use it) */
-#newsPanel::before {
-  content: "WORLD INTEL FEED";
-  display: block;
-  font-size: 11px;
-  letter-spacing: 2px;
-  color: #00ffff;
-  opacity: 0.7;
+/* NEWS ITEMS */
+.news-item {
+  background: #151515;
+  border: 1px solid #222;
+  padding: 10px;
   margin-bottom: 10px;
+  border-radius: 6px;
+}
+
+.news-item a {
+  color: #d4d4d4;
+  text-decoration: none;
+}
+
+.source-label {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 6px;
 }
