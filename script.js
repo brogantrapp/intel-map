@@ -227,3 +227,63 @@ if (toggle) {
 }
 loadNews();
 setInterval(loadNews, 60000);
+
+
+//=========================
+// LOAD NEWS
+// ========================
+
+async function loadNews() {
+
+  const panel = document.getElementById("newsPanel");
+  if (!panel) {
+    console.error("newsPanel element not found in HTML");
+    return;
+  }
+
+  panel.innerHTML = "<div style='color:#00ffff'>Loading news...</div>";
+
+  try {
+
+    // CORS proxy (required for RSS feeds in browser)
+    const rssUrl = "https://feeds.bbci.co.uk/news/world/rss.xml";
+    const proxy = "https://api.allorigins.win/raw?url=";
+
+    const res = await fetch(proxy + encodeURIComponent(rssUrl));
+
+    if (!res.ok) throw new Error("Network response not ok");
+
+    const text = await res.text();
+
+    const xml = new DOMParser().parseFromString(text, "text/xml");
+    const items = xml.querySelectorAll("item");
+
+    panel.innerHTML = "";
+
+    let count = 0;
+
+    items.forEach(item => {
+
+      if (count >= 10) return;
+
+      const title = item.querySelector("title")?.textContent;
+      const link = item.querySelector("link")?.textContent;
+
+      const div = document.createElement("div");
+
+      div.innerHTML = `
+        <a href="${link}" target="_blank" style="color:#9be7ff; text-decoration:none;">
+          ${title}
+        </a>
+      `;
+
+      panel.appendChild(div);
+
+      count++;
+    });
+
+  } catch (e) {
+    console.error("News load failed:", e);
+    panel.innerHTML = "<div style='color:#ff5555'>News unavailable</div>";
+  }
+}
