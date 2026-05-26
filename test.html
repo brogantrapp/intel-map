@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+
+<title>TEST</title>
+
+<link
+href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css"
+rel="stylesheet"
+/>
+
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
+<style>
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: black;
+  color: white;
+  font-family: Arial;
+}
+
+#map {
+  position: absolute;
+  top: 50px;
+  left: 0;
+  right: 300px;
+  bottom: 0;
+}
+
+#sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 300px;
+  bottom: 0;
+  background: #111;
+  overflow: auto;
+  padding: 10px;
+}
+
+#topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 300px;
+  height: 50px;
+  background: #222;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="topbar">
+
+  <div id="clock"></div>
+
+</div>
+
+<div id="map"></div>
+
+<div id="sidebar">
+
+  <h2>NEWS</h2>
+
+  <div id="news"></div>
+
+</div>
+
+<script>
+
+const map = new maplibregl.Map({
+  container: "map",
+  style:
+  "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  center: [0,20],
+  zoom: 1.5
+});
+
+function clock() {
+
+  const el =
+  document.getElementById("clock");
+
+  setInterval(() => {
+
+    el.innerHTML =
+      new Date().toLocaleTimeString();
+
+  }, 1000);
+}
+
+clock();
+
+async function news() {
+
+  const panel =
+  document.getElementById("news");
+
+  panel.innerHTML = "Loading...";
+
+  try {
+
+    const proxy =
+    "https://api.allorigins.win/raw?url=";
+
+    const url =
+    "https://feeds.bbci.co.uk/news/world/rss.xml";
+
+    const res =
+    await fetch(proxy + encodeURIComponent(url));
+
+    const text =
+    await res.text();
+
+    const xml =
+    new DOMParser().parseFromString(
+      text,
+      "text/xml"
+    );
+
+    const items =
+    xml.querySelectorAll("item");
+
+    panel.innerHTML = "";
+
+    items.forEach((item, i) => {
+
+      if (i > 8) return;
+
+      const title =
+      item.querySelector("title")?.textContent;
+
+      const div =
+      document.createElement("div");
+
+      div.style.marginBottom = "10px";
+
+      div.innerHTML = title;
+
+      panel.appendChild(div);
+    });
+
+  } catch(e) {
+
+    console.error(e);
+
+    panel.innerHTML =
+    "NEWS FAILED";
+  }
+}
+
+news();
+
+</script>
+
+</body>
+</html>
