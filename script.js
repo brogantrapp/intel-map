@@ -287,3 +287,109 @@ async function loadNews() {
     panel.innerHTML = "<div style='color:#ff5555'>News unavailable</div>";
   }
 }
+
+//=========================
+// AUTOCORRECT
+//=========================
+
+
+function setupSearch(map, geojsonData) {
+
+  const input = document.getElementById("searchBox");
+
+  if (!input) {
+    console.error("searchBox not found in HTML");
+    return;
+  }
+
+  // normalize function
+  function norm(s) {
+    return (s || "").toLowerCase().trim();
+  }
+
+  // find best match (autocorrect-style)
+  function findBestMatch(query) {
+
+    query = norm(query);
+
+    if (!query) return null;
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const feature of geojsonData.features) {
+
+      const name = norm(feature.properties.name);
+
+      // simple scoring system (partial match)
+      let score = 0;
+
+      if (name === query) score = 100;
+      else if (name.includes(query)) score = 80;
+      else if (query.includes(name)) score = 60;
+      else if (name.startsWith(query)) score = 70;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = feature;
+      }
+    }
+
+    return bestMatch;
+  }
+
+  // highlight layer state
+  let highlightId = null;
+
+  function highlightCountry(feature) {
+
+    if (!feature) return;
+
+    const name = feature.properties.name;
+
+    // remove old highlight layer if exists
+    if (map.getLayer("highlight-layer")) {
+      map.removeLayer("highlight-layer");
+      map.removeSource("highlight-source");
+    }
+
+    map.addSource("highlight-source", {
+      type: "geojson",
+      data: feature
+    });
+
+    map.addLayer({
+      id: "highlight-layer",
+      type: "line",
+      source: "highlight-source",
+      paint: {
+        "line-color": "#00ffff",
+        "line-width": 3
+      }
+    });
+  }
+
+  input.addEventListener("input", (e) => {
+
+    const value = e.target.value;
+
+    const match = findBestMatch(value);
+
+    if (!match) return;
+
+    highlightCountry(match);
+
+    // zoom to country
+    const coords = match.geometry.coordinates;
+
+    try {
+      map.flyTo({
+        center: [0, 20],
+        zoom: 3
+      });
+    } catch (err) {
+      console.error("Zoom error:", err);
+    }
+
+  });
+}
