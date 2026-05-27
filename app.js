@@ -79,7 +79,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   updateClock();
-
   setInterval(updateClock, 1000);
 
   // =========================
@@ -122,11 +121,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const title =
           item.querySelector("title")
-          ?.textContent;
+            ?.textContent;
 
         const link =
           item.querySelector("link")
-          ?.textContent;
+            ?.textContent;
 
         const div =
           document.createElement("div");
@@ -147,7 +146,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   loadNews();
-
   setInterval(loadNews, 60000);
 
   // =========================
@@ -169,27 +167,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
 
-    // IMPORTANT:
-    // risk.json should be:
-    // /public/data/risk.json
-
     const res =
       await fetch("/data/risk.json");
 
     riskMap =
       await res.json();
 
-    console.log(
-      "✅ risk.json loaded",
-      riskMap
-    );
+    console.log("✅ risk.json loaded");
 
   } catch (err) {
 
-    console.error(
-      "❌ FAILED TO LOAD risk.json",
-      err
-    );
+    console.error("❌ FAILED TO LOAD risk.json", err);
   }
 
   // =========================
@@ -212,22 +200,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   Object.entries(riskMap).forEach(([k, v]) => {
 
-    riskIndex[
-      normalize(k)
-    ] = v;
+    riskIndex[normalize(k)] = v;
   });
 
-  console.log(
-    "✅ risk index built",
-    riskIndex
-  );
-
   // =========================
-  // COUNTRY ALIASES
+  // ALIASES
   // =========================
 
   const aliases = {
-
     "united states of america": "united states",
     "russian federation": "russia",
     "iran islamic republic of": "iran",
@@ -249,7 +229,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function getColor(level) {
 
-    switch(Number(level)) {
+    switch (Number(level)) {
 
       case 4:
         return "#c0392b";
@@ -266,6 +246,42 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // =========================
+  // GLOBAL RISK INDEX (ADDED)
+  // =========================
+
+  function updateGlobalRiskIndex() {
+
+    const values = Object.values(riskIndex);
+
+    if (!values.length) return;
+
+    let sum = 0;
+
+    values.forEach(v => sum += Number(v));
+
+    const avg = sum / values.length;
+
+    const el =
+      document.getElementById("riskLevelText");
+
+    if (!el) return;
+
+    if (avg >= 3) {
+      el.innerText = "SEVERE";
+      el.style.color = "#c0392b";
+    } else if (avg >= 2.3) {
+      el.innerText = "HIGH";
+      el.style.color = "#e67e22";
+    } else if (avg >= 1.6) {
+      el.innerText = "MODERATE";
+      el.style.color = "#f1c40f";
+    } else {
+      el.innerText = "LOW";
+      el.style.color = "#2ecc71";
+    }
+  }
+
+  // =========================
   // APPLY COLORS
   // =========================
 
@@ -273,12 +289,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     geojson.features.forEach(f => {
 
-      let name =
-        normalize(
-          f.properties.name
-        );
+      let name = normalize(f.properties.name);
 
-      // alias correction
       if (aliases[name]) {
         name = aliases[name];
       }
@@ -330,25 +342,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
 
-    // APPLY COLORS
     applyColors();
+    updateGlobalRiskIndex(); // ✅ ADDED
 
-    // TOGGLE
     const toggle =
       document.getElementById("colorToggle");
 
     if (toggle) {
 
-      toggle.addEventListener(
-        "change",
-        (e) => {
+      toggle.addEventListener("change", (e) => {
 
-          colorsEnabled =
-            e.target.checked;
-
-          applyColors();
-        }
-      );
+        colorsEnabled = e.target.checked;
+        applyColors();
+      });
     }
 
     setupSearch();
@@ -366,12 +372,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const dropdown =
       document.createElement("div");
 
-    dropdown.className =
-      "searchDropdown";
-
-    dropdown.style.display =
-      "none";
-
+    dropdown.className = "searchDropdown";
+    dropdown.style.display = "none";
     document.body.appendChild(dropdown);
 
     function matches(q) {
@@ -415,19 +417,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     input.addEventListener("input", e => {
 
-      const value =
-        e.target.value;
+      const value = e.target.value;
 
-      const list =
-        matches(value);
+      const list = matches(value);
 
       dropdown.innerHTML = "";
 
       if (!list.length) {
-
-        dropdown.style.display =
-          "none";
-
+        dropdown.style.display = "none";
         return;
       }
 
@@ -445,19 +442,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         const item =
           document.createElement("div");
 
-        item.className =
-          "searchItem";
-
-        item.textContent =
-          f.properties.name;
+        item.className = "searchItem";
+        item.textContent = f.properties.name;
 
         item.onclick = () => {
 
-          input.value =
-            f.properties.name;
-
-          dropdown.style.display =
-            "none";
+          input.value = f.properties.name;
+          dropdown.style.display = "none";
 
           highlight(f);
 
@@ -465,7 +456,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             new maplibregl.LngLatBounds();
 
           function add(c) {
-
             if (typeof c[0] === "number") {
               bounds.extend(c);
             } else {
@@ -479,23 +469,71 @@ document.addEventListener("DOMContentLoaded", async () => {
             padding: 50,
             duration: 1200
           });
+
+          // 🔥 ADDED COUNTRY PANEL TRIGGER
+          showCountryPanel(f);
         };
 
         dropdown.appendChild(item);
       });
 
-      dropdown.style.display =
-        "block";
+      dropdown.style.display = "block";
     });
 
     document.addEventListener("click", e => {
 
       if (e.target !== input) {
-
-        dropdown.style.display =
-          "none";
+        dropdown.style.display = "none";
       }
     });
+  }
+
+  // =========================
+  // COUNTRY PANEL (ADDED)
+  // =========================
+
+  function showCountryPanel(f) {
+
+    const panel =
+      document.getElementById("countryPanel");
+
+    if (!panel) return;
+
+    panel.classList.remove("hidden");
+
+    let name =
+      normalize(f.properties.name);
+
+    if (aliases[name]) name = aliases[name];
+
+    const level =
+      riskIndex[name] ?? 1;
+
+    const labels = {
+      1: "LOW RISK",
+      2: "CAUTION",
+      3: "HIGH CAUTION",
+      4: "DO NOT TRAVEL"
+    };
+
+    document.getElementById("countryName")
+      .innerText = f.properties.name;
+
+    document.getElementById("countryRiskText")
+      .innerText = level;
+
+    document.getElementById("countryRegion")
+      .innerText = f.properties.region || "Global";
+
+    document.getElementById("countryStatus")
+      .innerText = labels[level];
+
+    const badge =
+      document.getElementById("countryRiskBadge");
+
+    badge.innerText = labels[level];
+    badge.style.background = getColor(level);
+    badge.style.color = "#fff";
   }
 
 });
