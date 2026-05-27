@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     container: "map",
     style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
     center: [0, 20],
-    zoom: 1.8
+    zoom: 1.0
   });
 
   map.addControl(
@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         map.flyTo({
           center: [0, 20],
-          zoom: 1.8,
+          zoom: 1.0,
           bearing: 0,
           pitch: 0,
           duration: 1200
