@@ -26,10 +26,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       this._map = map;
 
-      const container =
+      this._container =
         document.createElement("div");
 
-      container.className =
+      this._container.className =
         "maplibregl-ctrl maplibregl-ctrl-group";
 
       const btn =
@@ -37,6 +37,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       btn.className =
         "home-control-btn";
+
+      btn.type = "button";
 
       btn.innerHTML = "⌂";
 
@@ -54,12 +56,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       };
 
-      container.appendChild(btn);
+      this._container.appendChild(btn);
 
-      return container;
+      return this._container;
     }
 
     onRemove() {
+
+      this._container.parentNode.removeChild(
+        this._container
+      );
+
       this._map = undefined;
     }
   }
@@ -94,20 +101,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const panel =
       document.getElementById("newsPanel");
 
-    panel.innerHTML =
-      "Loading news...";
+    panel.innerHTML = "Loading news...";
 
     try {
 
-      const res = await fetch(
-        "https://api.allorigins.win/raw?url=" +
-        encodeURIComponent(
-          "https://feeds.bbci.co.uk/news/world/rss.xml"
-        )
-      );
+      const response =
+        await fetch(
+          "https://api.allorigins.win/raw?url=" +
+          encodeURIComponent(
+            "https://feeds.bbci.co.uk/news/world/rss.xml"
+          )
+        );
 
       const text =
-        await res.text();
+        await response.text();
 
       const xml =
         new DOMParser()
@@ -120,7 +127,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       items.forEach((item, i) => {
 
-        if (i > 14) return;
+        if (i >= 15) return;
 
         const title =
           item.querySelector("title")
@@ -137,14 +144,15 @@ document.addEventListener("DOMContentLoaded", async () => {
           `<a href="${link}" target="_blank">${title}</a>`;
 
         panel.appendChild(div);
+
       });
 
-    } catch (e) {
+    } catch (err) {
+
+      console.error(err);
 
       panel.innerHTML =
         "News unavailable";
-
-      console.error(e);
     }
   }
 
@@ -153,45 +161,64 @@ document.addEventListener("DOMContentLoaded", async () => {
   setInterval(loadNews, 60000);
 
   // =========================
-  // GEOJSON
+  // LOAD MAP GEOJSON
   // =========================
 
-  const geojson = await fetch(
-    "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
-  ).then(r => r.json());
+  const geojson =
+    await fetch(
+      "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
+    ).then(r => r.json());
 
   // =========================
-  // RISK DATA
+  // LOAD RISK.JSON
   // =========================
 
   let riskMap = {};
 
   try {
 
-    const riskRes =
+    const riskResponse =
       await fetch("./data/risk.json");
 
     riskMap =
-      await riskRes.json();
+      await riskResponse.json();
 
-    console.log("✅ risk.json loaded");
+    console.log(
+      "✅ risk.json loaded",
+      riskMap
+    );
 
-  } catch (e) {
+  } catch (err) {
 
-    console.error("❌ risk.json failed");
+    console.error(
+      "❌ FAILED TO LOAD risk.json"
+    );
 
-    console.error(e);
+    console.error(err);
   }
 
   // =========================
-  // COLOR SYSTEM
+  // NORMALIZE COUNTRY NAMES
+  // =========================
+
+  function normalize(name) {
+
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[.']/g, "")
+      .replace(/\s+/g, " ");
+  }
+
+  // =========================
+  // RISK COLORS
   // =========================
 
   let colorsEnabled = true;
 
   function getRiskColor(level) {
 
-    switch(level) {
+    switch(Number(level)) {
 
       case 4:
         return "#ff0000";
@@ -202,22 +229,30 @@ document.addEventListener("DOMContentLoaded", async () => {
       case 2:
         return "#ffee00";
 
+      case 1:
       default:
         return "#00aa44";
     }
   }
 
+  // =========================
+  // APPLY COLORS
+  // =========================
+
   function applyColors() {
 
-    geojson.features.forEach(f => {
+    geojson.features.forEach(feature => {
+
+      const rawName =
+        feature.properties.name;
 
       const name =
-        f.properties.name.toLowerCase();
+        normalize(rawName);
 
       const level =
         riskMap[name] || 1;
 
-      f.properties.color =
+      feature.properties.color =
         colorsEnabled
           ? getRiskColor(level)
           : "#2a2a2a";
@@ -236,38 +271,43 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   map.on("load", () => {
 
+    // APPLY COLORS FIRST
     applyColors();
 
+    // SOURCE
     map.addSource("countries", {
       type: "geojson",
       data: geojson
     });
 
+    // FILLS
     map.addLayer({
-      id: "fill",
+      id: "country-fills",
       type: "fill",
       source: "countries",
       paint: {
         "fill-color": ["get", "color"],
-        "fill-opacity": 0.75
+        "fill-opacity": 0.78
       }
     });
 
+    // BORDERS
     map.addLayer({
-      id: "border",
+      id: "country-borders",
       type: "line",
       source: "countries",
       paint: {
         "line-color": "#111",
-        "line-width": 0.8
+        "line-width": 0.7
       }
     });
 
+    // SEARCH
     setupSearch();
   });
 
   // =========================
-  // TOGGLE
+  // TOGGLE SWITCH
   // =========================
 
   const colorToggle =
@@ -279,7 +319,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       colorToggle.checked;
 
     applyColors();
-
   });
 
   // =========================
@@ -302,6 +341,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.body.appendChild(dropdown);
 
+    // MATCHES
     function matches(q) {
 
       q = q.toLowerCase();
@@ -315,7 +355,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         .slice(0, 8);
     }
 
-    function highlight(f) {
+    // HIGHLIGHT
+    function highlight(feature) {
 
       if (map.getLayer("highlight")) {
         map.removeLayer("highlight");
@@ -327,7 +368,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       map.addSource("highlight-src", {
         type: "geojson",
-        data: f
+        data: feature
       });
 
       map.addLayer({
@@ -341,17 +382,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
 
+    // INPUT
     input.addEventListener("input", e => {
 
       const value =
         e.target.value;
 
-      const list =
+      const results =
         matches(value);
 
       dropdown.innerHTML = "";
 
-      if (!list.length) {
+      if (!value || !results.length) {
 
         dropdown.style.display =
           "none";
@@ -368,7 +410,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       dropdown.style.top =
         rect.bottom + "px";
 
-      list.forEach(f => {
+      results.forEach(feature => {
 
         const item =
           document.createElement("div");
@@ -377,37 +419,41 @@ document.addEventListener("DOMContentLoaded", async () => {
           "searchItem";
 
         item.textContent =
-          f.properties.name;
+          feature.properties.name;
 
         item.onclick = () => {
 
           input.value =
-            f.properties.name;
+            feature.properties.name;
 
           dropdown.style.display =
             "none";
 
-          highlight(f);
+          highlight(feature);
 
           const bounds =
             new maplibregl.LngLatBounds();
 
-          function add(c) {
+          function addCoords(coords) {
 
-            if (typeof c[0] === "number") {
+            if (
+              typeof coords[0] === "number"
+            ) {
 
-              bounds.extend(c);
+              bounds.extend(coords);
 
             } else {
 
-              c.forEach(add);
+              coords.forEach(addCoords);
             }
           }
 
-          add(f.geometry.coordinates);
+          addCoords(
+            feature.geometry.coordinates
+          );
 
           map.fitBounds(bounds, {
-            padding: 50,
+            padding: 40,
             duration: 1200
           });
         };
@@ -419,6 +465,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         "block";
     });
 
+    // CLICK OUTSIDE
     document.addEventListener("click", e => {
 
       if (e.target !== input) {
