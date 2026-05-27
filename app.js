@@ -193,116 +193,108 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
-  // =========================
-  // COLOR TOGGLE
-  // =========================
+ // =========================
+// NORMALIZE
+// =========================
 
-  let colorsEnabled = true;
+function normalize(name) {
 
-  // =========================
-  // COUNTRY FIXES
-  // =========================
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[.,']/g, "")
+    .replace(/\s+/g, " ");
+}
 
-  const aliases = {
+// =========================
+// FIX RISK MAP
+// =========================
 
-    "united states of america": "united states",
-    "russian federation": "russia",
-    "iran islamic republic of": "iran",
-    "korea republic of": "south korea",
-    "korea democratic peoples republic of": "north korea",
-    "viet nam": "vietnam",
-    "syrian arab republic": "syria",
-    "venezuela bolivarian republic of": "venezuela",
-    "tanzania united republic of": "tanzania",
-    "moldova republic of": "moldova",
-    "bolivia plurinational state of": "bolivia",
-    "lao peoples democratic republic": "laos",
-    "brunei darussalam": "brunei",
-    "czech republic": "czechia"
-  };
+const normalizedRiskMap = {};
 
-  // =========================
-  // NORMALIZE
-  // =========================
+Object.keys(riskMap).forEach(key => {
 
-  function normalize(name) {
+  normalizedRiskMap[
+    normalize(key)
+  ] = riskMap[key];
 
-    return name
-      .toLowerCase()
-      .trim()
-      .replace(/[.,']/g, "")
-      .replace(/\s+/g, " ");
-  }
+});
 
-  // =========================
-  // COLOR SYSTEM
-  // =========================
+// =========================
+// ALIASES
+// =========================
 
-  function getColor(level) {
+const aliases = {
 
-    switch(Number(level)) {
+  "united states of america": "united states",
 
-      case 4:
-        return "#ff0000";
+  "russian federation": "russia",
 
-      case 3:
-        return "#ff8800";
+  "czech republic": "czechia",
 
-      case 2:
-        return "#ffee00";
+  "macedonia": "north macedonia",
 
-      case 1:
-      default:
-        return "#00aa44";
-    }
-  }
+  "united republic of tanzania": "tanzania",
 
-  // =========================
-  // APPLY COLORS
-  // =========================
+  "the bahamas": "bahamas",
 
-  function applyColors() {
+  "swaziland": "eswatini",
 
-    geojson.features.forEach(f => {
+  "republic of serbia": "serbia",
 
-      const rawName =
-        f.properties.name;
+  "east timor": "timor-leste",
 
-      let name =
-        normalize(rawName);
+  "ivory coast": "ivory coast",
 
-      // alias conversion
-      if (aliases[name]) {
-        name = aliases[name];
-      }
+  "viet nam": "vietnam"
+};
 
-      // risk level
-      const level =
-        Number(riskMap[name]) || 1;
+// =========================
+// APPLY COLORS
+// =========================
 
-      console.log(
-        rawName,
-        "→",
-        name,
-        "→",
-        level
+function applyColors() {
+
+  geojson.features.forEach(f => {
+
+    let geoName =
+      normalize(
+        f.properties.name
       );
 
-      // apply color
-      f.properties.color =
-        colorsEnabled
-          ? getColor(level)
-          : "#2a2a2a";
-    });
+    // alias conversion
+    if (aliases[geoName]) {
 
-    // refresh source
-    if (map.getSource("countries")) {
-
-      map.getSource("countries")
-        .setData(geojson);
+      geoName =
+        aliases[geoName];
     }
-  }
 
+    const level =
+      Number(
+        normalizedRiskMap[geoName]
+      ) || 1;
+
+    f.properties.color =
+      colorsEnabled
+        ? getColor(level)
+        : "#2a2a2a";
+
+    console.log(
+      f.properties.name,
+      "→",
+      geoName,
+      "→",
+      level
+    );
+
+  });
+
+  if (map.getSource("countries")) {
+
+    map.getSource("countries")
+      .setData(geojson);
+  }
+}
   // =========================
   // MAP LOAD
   // =========================
