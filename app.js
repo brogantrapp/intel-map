@@ -1,9 +1,5 @@
 document.addEventListener("DOMContentLoaded", async () => {
 
-  // =========================
-  // MAP
-  // =========================
-
   const map = new maplibregl.Map({
     container: "map",
     style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
@@ -11,40 +7,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     zoom: 1.8
   });
 
-  map.addControl(
-    new maplibregl.NavigationControl(),
-    "top-right"
-  );
-
-  // =========================
-  // HOME BUTTON
-  // =========================
+  map.addControl(new maplibregl.NavigationControl(), "top-right");
 
   class HomeControl {
-
     onAdd(map) {
+      const container = document.createElement("div");
+      container.className = "maplibregl-ctrl maplibregl-ctrl-group";
 
-      const container =
-        document.createElement("div");
-
-      container.className =
-        "maplibregl-ctrl maplibregl-ctrl-group";
-
-      const btn =
-        document.createElement("button");
-
-      btn.className =
-        "home-control-btn";
-
+      const btn = document.createElement("button");
+      btn.className = "home-control-btn";
       btn.innerHTML = "⌂";
-
       btn.title = "Reset View";
-
       btn.style.background = "#e6e6e6";
       btn.style.color = "#111";
 
       btn.onclick = () => {
-
         map.flyTo({
           center: [0, 20],
           zoom: 1.8,
@@ -52,23 +29,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           pitch: 0,
           duration: 1200
         });
-
       };
 
       container.appendChild(btn);
-
       return container;
     }
   }
 
   map.addControl(new HomeControl(), "top-right");
 
-  // =========================
-  // CLOCK
-  // =========================
-
   function updateClock() {
-
     document.getElementById("clockText").innerText =
       new Date().toLocaleTimeString() +
       " | " +
@@ -78,54 +48,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateClock();
   setInterval(updateClock, 1000);
 
-  // =========================
-  // NEWS
-  // =========================
-
   async function loadNews() {
-
-    const panel =
-      document.getElementById("newsPanel");
-
+    const panel = document.getElementById("newsPanel");
     panel.innerHTML = "Loading news...";
 
     try {
-
-      const res =
-        await fetch(
-          "https://api.allorigins.win/raw?url=" +
-          encodeURIComponent(
-            "https://feeds.bbci.co.uk/news/world/rss.xml"
-          )
-        );
+      const res = await fetch(
+        "https://api.allorigins.win/raw?url=" +
+        encodeURIComponent("https://feeds.bbci.co.uk/news/world/rss.xml")
+      );
 
       const text = await res.text();
-
-      const xml =
-        new DOMParser().parseFromString(text, "text/xml");
-
-      const items =
-        xml.querySelectorAll("item");
+      const xml = new DOMParser().parseFromString(text, "text/xml");
+      const items = xml.querySelectorAll("item");
 
       panel.innerHTML = "";
 
       items.forEach((item, i) => {
-
         if (i > 12) return;
 
         const title = item.querySelector("title")?.textContent;
         const link = item.querySelector("link")?.textContent;
 
         const div = document.createElement("div");
-
-        div.innerHTML =
-          `<a href="${link}" target="_blank">${title}</a>`;
-
+        div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
         panel.appendChild(div);
       });
 
     } catch (err) {
-
       panel.innerHTML = "News unavailable";
     }
   }
@@ -133,35 +83,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   loadNews();
   setInterval(loadNews, 60000);
 
-  // =========================
-  // LOAD GEOJSON
-  // =========================
-
-  const geojson =
-    await fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
-      .then(r => r.json());
-
-  // =========================
-  // LOAD RISK.JSON
-  // =========================
+  const geojson = await fetch(
+    "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
+  ).then(r => r.json());
 
   let riskData = {};
   let colorsEnabled = true;
 
   try {
-
-    const res = await fetch("/data/risk.json");
-    riskData = await res.json();
-
-    console.log("✅ risk loaded", riskData);
-
+    riskData = await fetch("/data/risk.json").then(r => r.json());
   } catch (err) {
-    console.error("❌ risk load failed", err);
+    console.error("risk.json failed", err);
   }
-
-  // =========================
-  // NORMALIZE
-  // =========================
 
   function normalize(name) {
     return name
@@ -172,14 +105,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       .trim();
   }
 
-  // =========================
-  // COLOR FUNCTION
-  // =========================
-
   function getColor(level) {
-
     switch (Number(level)) {
-
       case 4: return "#c0392b";
       case 3: return "#e67e22";
       case 2: return "#f1c40f";
@@ -187,71 +114,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // =========================
-  // GLOBAL RISK INDEX
-  // =========================
-
-  function updateGlobalRiskIndex() {
-
-    const values =
-      Object.values(riskData).map(v => v.risk);
-
-    if (!values.length) return;
-
-    const avg =
-      values.reduce((a, b) => a + b, 0) / values.length;
-
-    const el = document.getElementById("riskLevelText");
-
-    if (!el) return;
-
-    if (avg >= 3) {
-      el.innerText = "SEVERE";
-      el.style.color = "#c0392b";
-    } else if (avg >= 2.3) {
-      el.innerText = "HIGH";
-      el.style.color = "#e67e22";
-    } else if (avg >= 1.6) {
-      el.innerText = "MODERATE";
-      el.style.color = "#f1c40f";
-    } else {
-      el.innerText = "LOW";
-      el.style.color = "#2ecc71";
-    }
-  }
-
-  // =========================
-  // APPLY COLORS
-  // =========================
-
   function applyColors() {
-
     geojson.features.forEach(f => {
 
-      let name = normalize(f.properties.name);
+      const name = normalize(f.properties.name);
 
-      const match =
-        Object.entries(riskData).find(([k]) =>
-          normalize(k) === name
-        );
+      const match = Object.entries(riskData)
+        .find(([k]) => normalize(k) === name);
 
       const level =
-        match ? match[1].risk : 1;
+        match ? (match[1]?.risk ?? 1) : 1; // ✅ FIXED
 
       f.properties.color =
-        colorsEnabled
-          ? getColor(level)
-          : "#2a2a2a";
+        colorsEnabled ? getColor(level) : "#2a2a2a";
     });
 
     if (map.getSource("countries")) {
       map.getSource("countries").setData(geojson);
     }
   }
-
-  // =========================
-  // MAP LOAD
-  // =========================
 
   map.on("load", () => {
 
@@ -281,10 +162,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     applyColors();
-    updateGlobalRiskIndex();
 
-    document
-      .getElementById("colorToggle")
+    document.getElementById("colorToggle")
       ?.addEventListener("change", e => {
         colorsEnabled = e.target.checked;
         applyColors();
@@ -293,24 +172,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupSearch();
   });
 
-  // =========================
-  // SEARCH
-  // =========================
-
   function setupSearch() {
 
     const input = document.getElementById("searchBox");
-
     const dropdown = document.createElement("div");
     dropdown.className = "searchDropdown";
     dropdown.style.display = "none";
     document.body.appendChild(dropdown);
 
     function matches(q) {
-      q = q.toLowerCase();
+      q = normalize(q);
+
       return geojson.features
         .filter(f =>
-          f.properties.name.toLowerCase().includes(q)
+          normalize(f.properties.name).includes(q) // ✅ FIXED AUTOCOMPLETE
         )
         .slice(0, 8);
     }
@@ -368,11 +243,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           const bounds = new maplibregl.LngLatBounds();
 
           function add(c) {
-            if (typeof c[0] === "number") {
-              bounds.extend(c);
-            } else {
-              c.forEach(add);
-            }
+            if (typeof c[0] === "number") bounds.extend(c);
+            else c.forEach(add);
           }
 
           add(f.geometry.coordinates);
@@ -381,8 +253,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             padding: 50,
             duration: 1200
           });
-
-          showCountryPanel(f);
         };
 
         dropdown.appendChild(item);
@@ -395,35 +265,4 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (e.target !== input) dropdown.style.display = "none";
     });
   }
-
-  // =========================
-  // COUNTRY PANEL
-  // =========================
-
-  function showCountryPanel(f) {
-
-    const panel = document.getElementById("countryPanel");
-    if (!panel) return;
-
-    panel.classList.remove("hidden");
-
-    const match =
-      Object.entries(riskData).find(([k]) =>
-        normalize(k) === normalize(f.properties.name)
-      );
-
-    const risk = match ? match[1].risk : 1;
-    const region = match ? match[1].region : "Unknown";
-
-    document.getElementById("countryName").innerText = f.properties.name;
-    document.getElementById("countryRiskText").innerText = risk;
-    document.getElementById("countryRegion").innerText = region;
-
-    const badge = document.getElementById("countryRiskBadge");
-
-    badge.innerText = risk;
-    badge.style.background = getColor(risk);
-    badge.style.color = "#fff";
-  }
-
 });
