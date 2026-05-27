@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     container: "map",
     style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
     center: [0, 20],
-    zoom: 1.0
+    zoom: 1.8
   });
 
   map.addControl(
@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         map.flyTo({
           center: [0, 20],
-          zoom: 1.0,
+          zoom: 1.8,
           bearing: 0,
           pitch: 0,
           duration: 1200
@@ -61,10 +61,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  map.addControl(
-    new HomeControl(),
-    "top-right"
-  );
+  map.addControl(new HomeControl(), "top-right");
 
   // =========================
   // CLOCK
@@ -90,8 +87,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const panel =
       document.getElementById("newsPanel");
 
-    panel.innerHTML =
-      "Loading news...";
+    panel.innerHTML = "Loading news...";
 
     try {
 
@@ -103,12 +99,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           )
         );
 
-      const text =
-        await res.text();
+      const text = await res.text();
 
       const xml =
-        new DOMParser()
-        .parseFromString(text, "text/xml");
+        new DOMParser().parseFromString(text, "text/xml");
 
       const items =
         xml.querySelectorAll("item");
@@ -119,16 +113,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (i > 12) return;
 
-        const title =
-          item.querySelector("title")
-            ?.textContent;
+        const title = item.querySelector("title")?.textContent;
+        const link = item.querySelector("link")?.textContent;
 
-        const link =
-          item.querySelector("link")
-            ?.textContent;
-
-        const div =
-          document.createElement("div");
+        const div = document.createElement("div");
 
         div.innerHTML =
           `<a href="${link}" target="_blank">${title}</a>`;
@@ -138,10 +126,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     } catch (err) {
 
-      console.error(err);
-
-      panel.innerHTML =
-        "News unavailable";
+      panel.innerHTML = "News unavailable";
     }
   }
 
@@ -153,31 +138,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   // =========================
 
   const geojson =
-    await fetch(
-      "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
-    ).then(r => r.json());
+    await fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
+      .then(r => r.json());
 
   // =========================
   // LOAD RISK.JSON
   // =========================
 
-  let riskMap = {};
-  let riskIndex = {};
+  let riskData = {};
   let colorsEnabled = true;
 
   try {
 
-    const res =
-      await fetch("/data/risk.json");
+    const res = await fetch("/data/risk.json");
+    riskData = await res.json();
 
-    riskMap =
-      await res.json();
-
-    console.log("✅ risk.json loaded");
+    console.log("✅ risk loaded", riskData);
 
   } catch (err) {
-
-    console.error("❌ FAILED TO LOAD risk.json", err);
+    console.error("❌ risk load failed", err);
   }
 
   // =========================
@@ -185,7 +164,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   // =========================
 
   function normalize(name) {
-
     return name
       .toLowerCase()
       .replace(/\(.*?\)/g, "")
@@ -195,74 +173,35 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // =========================
-  // BUILD RISK INDEX
-  // =========================
-
-  Object.entries(riskMap).forEach(([k, v]) => {
-
-    riskIndex[normalize(k)] = v;
-  });
-
-  // =========================
-  // ALIASES
-  // =========================
-
-  const aliases = {
-    "united states of america": "united states",
-    "russian federation": "russia",
-    "iran islamic republic of": "iran",
-    "korea republic of": "south korea",
-    "korea democratic peoples republic of": "north korea",
-    "viet nam": "vietnam",
-    "syrian arab republic": "syria",
-    "bolivia plurinational state of": "bolivia",
-    "moldova republic of": "moldova",
-    "lao peoples democratic republic": "laos",
-    "united republic of tanzania": "tanzania",
-    "czech republic": "czechia",
-    "macedonia": "north macedonia"
-  };
-
-  // =========================
-  // COLORS
+  // COLOR FUNCTION
   // =========================
 
   function getColor(level) {
 
     switch (Number(level)) {
 
-      case 4:
-        return "#c0392b";
-
-      case 3:
-        return "#e67e22";
-
-      case 2:
-        return "#f1c40f";
-
-      default:
-        return "#2ecc71";
+      case 4: return "#c0392b";
+      case 3: return "#e67e22";
+      case 2: return "#f1c40f";
+      default: return "#2ecc71";
     }
   }
 
   // =========================
-  // GLOBAL RISK INDEX (ADDED)
+  // GLOBAL RISK INDEX
   // =========================
 
   function updateGlobalRiskIndex() {
 
-    const values = Object.values(riskIndex);
+    const values =
+      Object.values(riskData).map(v => v.risk);
 
     if (!values.length) return;
 
-    let sum = 0;
+    const avg =
+      values.reduce((a, b) => a + b, 0) / values.length;
 
-    values.forEach(v => sum += Number(v));
-
-    const avg = sum / values.length;
-
-    const el =
-      document.getElementById("riskLevelText");
+    const el = document.getElementById("riskLevelText");
 
     if (!el) return;
 
@@ -291,12 +230,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       let name = normalize(f.properties.name);
 
-      if (aliases[name]) {
-        name = aliases[name];
-      }
+      const match =
+        Object.entries(riskData).find(([k]) =>
+          normalize(k) === name
+        );
 
       const level =
-        riskIndex[name] ?? 1;
+        match ? match[1].risk : 1;
 
       f.properties.color =
         colorsEnabled
@@ -305,9 +245,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     if (map.getSource("countries")) {
-
-      map.getSource("countries")
-        .setData(geojson);
+      map.getSource("countries").setData(geojson);
     }
   }
 
@@ -343,19 +281,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     applyColors();
-    updateGlobalRiskIndex(); // ✅ ADDED
+    updateGlobalRiskIndex();
 
-    const toggle =
-      document.getElementById("colorToggle");
-
-    if (toggle) {
-
-      toggle.addEventListener("change", (e) => {
-
+    document
+      .getElementById("colorToggle")
+      ?.addEventListener("change", e => {
         colorsEnabled = e.target.checked;
         applyColors();
       });
-    }
 
     setupSearch();
   });
@@ -366,38 +299,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function setupSearch() {
 
-    const input =
-      document.getElementById("searchBox");
+    const input = document.getElementById("searchBox");
 
-    const dropdown =
-      document.createElement("div");
-
+    const dropdown = document.createElement("div");
     dropdown.className = "searchDropdown";
     dropdown.style.display = "none";
     document.body.appendChild(dropdown);
 
     function matches(q) {
-
       q = q.toLowerCase();
-
       return geojson.features
         .filter(f =>
-          f.properties.name
-            .toLowerCase()
-            .includes(q)
+          f.properties.name.toLowerCase().includes(q)
         )
         .slice(0, 8);
     }
 
     function highlight(f) {
 
-      if (map.getLayer("highlight")) {
-        map.removeLayer("highlight");
-      }
-
-      if (map.getSource("highlight-src")) {
-        map.removeSource("highlight-src");
-      }
+      if (map.getLayer("highlight")) map.removeLayer("highlight");
+      if (map.getSource("highlight-src")) map.removeSource("highlight-src");
 
       map.addSource("highlight-src", {
         type: "geojson",
@@ -409,7 +330,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         type: "line",
         source: "highlight-src",
         paint: {
-          "line-color": "#ffffff",
+          "line-color": "#fff",
           "line-width": 3
         }
       });
@@ -417,9 +338,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     input.addEventListener("input", e => {
 
-      const value = e.target.value;
-
-      const list = matches(value);
+      const list = matches(e.target.value);
 
       dropdown.innerHTML = "";
 
@@ -428,20 +347,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      const rect =
-        input.getBoundingClientRect();
+      const rect = input.getBoundingClientRect();
 
-      dropdown.style.left =
-        rect.left + "px";
-
-      dropdown.style.top =
-        rect.bottom + "px";
+      dropdown.style.left = rect.left + "px";
+      dropdown.style.top = rect.bottom + "px";
 
       list.forEach(f => {
 
-        const item =
-          document.createElement("div");
-
+        const item = document.createElement("div");
         item.className = "searchItem";
         item.textContent = f.properties.name;
 
@@ -452,8 +365,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           highlight(f);
 
-          const bounds =
-            new maplibregl.LngLatBounds();
+          const bounds = new maplibregl.LngLatBounds();
 
           function add(c) {
             if (typeof c[0] === "number") {
@@ -470,7 +382,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             duration: 1200
           });
 
-          // 🔥 ADDED COUNTRY PANEL TRIGGER
           showCountryPanel(f);
         };
 
@@ -481,58 +392,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     document.addEventListener("click", e => {
-
-      if (e.target !== input) {
-        dropdown.style.display = "none";
-      }
+      if (e.target !== input) dropdown.style.display = "none";
     });
   }
 
   // =========================
-  // COUNTRY PANEL (ADDED)
+  // COUNTRY PANEL
   // =========================
 
   function showCountryPanel(f) {
 
-    const panel =
-      document.getElementById("countryPanel");
-
+    const panel = document.getElementById("countryPanel");
     if (!panel) return;
 
     panel.classList.remove("hidden");
 
-    let name =
-      normalize(f.properties.name);
+    const match =
+      Object.entries(riskData).find(([k]) =>
+        normalize(k) === normalize(f.properties.name)
+      );
 
-    if (aliases[name]) name = aliases[name];
+    const risk = match ? match[1].risk : 1;
+    const region = match ? match[1].region : "Unknown";
 
-    const level =
-      riskIndex[name] ?? 1;
+    document.getElementById("countryName").innerText = f.properties.name;
+    document.getElementById("countryRiskText").innerText = risk;
+    document.getElementById("countryRegion").innerText = region;
 
-    const labels = {
-      1: "LOW RISK",
-      2: "CAUTION",
-      3: "HIGH CAUTION",
-      4: "DO NOT TRAVEL"
-    };
+    const badge = document.getElementById("countryRiskBadge");
 
-    document.getElementById("countryName")
-      .innerText = f.properties.name;
-
-    document.getElementById("countryRiskText")
-      .innerText = level;
-
-    document.getElementById("countryRegion")
-      .innerText = f.properties.region || "Global";
-
-    document.getElementById("countryStatus")
-      .innerText = labels[level];
-
-    const badge =
-      document.getElementById("countryRiskBadge");
-
-    badge.innerText = labels[level];
-    badge.style.background = getColor(level);
+    badge.innerText = risk;
+    badge.style.background = getColor(risk);
     badge.style.color = "#fff";
   }
 
