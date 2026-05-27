@@ -175,9 +175,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     switch (Number(level)) {
 
-      case 4: return "#ff0000";
-      case 3: return "#ff8800";
-      case 2: return "#ffee00";
+      case 4: return "#c0392b";
+      case 3: return "#e67e22";
+      case 2: return "#f1c40f";
       default: return "#00aa44";
     }
   }
