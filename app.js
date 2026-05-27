@@ -15,7 +15,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       container.className = "maplibregl-ctrl maplibregl-ctrl-group";
 
       const btn = document.createElement("button");
-      btn.className = "home-control-btn";
       btn.innerHTML = "⌂";
       btn.title = "Reset View";
       btn.style.background = "#e6e6e6";
@@ -114,7 +113,62 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  function getRegion(name) {
+
+    const n = normalize(name);
+
+    const middleEast = [
+      "afghanistan","iran","iraq","syria","yemen","saudi arabia",
+      "united arab emirates","qatar","kuwait","bahrain","oman","israel","lebanon","jordan"
+    ];
+
+    if (middleEast.includes(n)) return "Middle East";
+
+    if ([
+      "france","germany","italy","spain","norway","sweden","finland","poland","uk","united kingdom"
+    ].includes(n)) return "Europe";
+
+    if ([
+      "united states","canada","mexico"
+    ].includes(n)) return "North America";
+
+    if ([
+      "brazil","argentina","chile","peru","colombia"
+    ].includes(n)) return "South America";
+
+    if ([
+      "china","japan","india","south korea","indonesia"
+    ].includes(n)) return "Asia";
+
+    if ([
+      "australia","new zealand"
+    ].includes(n)) return "Oceania";
+
+    return "Unknown";
+  }
+
+  function updateInfo(countryName, level) {
+
+    const panel = document.getElementById("infoPanel");
+    if (!panel) return;
+
+    const region = getRegion(countryName);
+
+    let label = "Low Risk";
+    if (level == 2) label = "Moderate Risk";
+    if (level == 3) label = "High Risk";
+    if (level == 4) label = "Extreme Risk";
+
+    panel.innerHTML = `
+      <h3>${countryName}</h3>
+      <p><b>Risk:</b> ${level}</p>
+      <p><b>Status:</b> ${label}</p>
+      <p><b>Region:</b> ${region}</p>
+    `;
+  }
+
   function applyColors() {
+
     geojson.features.forEach(f => {
 
       const name = normalize(f.properties.name);
@@ -122,8 +176,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const match = Object.entries(riskData)
         .find(([k]) => normalize(k) === name);
 
-      const level =
-        match ? (match[1]?.risk ?? 1) : 1; // ✅ FIXED
+      const level = match ? (match[1]?.risk ?? match[1]) : 1;
 
       f.properties.color =
         colorsEnabled ? getColor(level) : "#2a2a2a";
@@ -184,9 +237,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       q = normalize(q);
 
       return geojson.features
-        .filter(f =>
-          normalize(f.properties.name).includes(q) // ✅ FIXED AUTOCOMPLETE
-        )
+        .filter(f => normalize(f.properties.name).includes(q))
         .slice(0, 8);
     }
 
@@ -238,7 +289,13 @@ document.addEventListener("DOMContentLoaded", async () => {
           input.value = f.properties.name;
           dropdown.style.display = "none";
 
+          const match = Object.entries(riskData)
+            .find(([k]) => normalize(k) === normalize(f.properties.name));
+
+          const level = match ? (match[1]?.risk ?? match[1]) : 1;
+
           highlight(f);
+          updateInfo(f.properties.name, level);
 
           const bounds = new maplibregl.LngLatBounds();
 
