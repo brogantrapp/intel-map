@@ -8,51 +8,70 @@ document.addEventListener("DOMContentLoaded", async () => {
     container: "map",
     style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
     center: [0, 20],
-    zoom: 1.0
+    zoom: 1.8
   });
 
-  map.addControl(new maplibregl.NavigationControl(), "top-right");
+  map.addControl(
+    new maplibregl.NavigationControl(),
+    "top-right"
+  );
 
   // =========================
   // HOME BUTTON
   // =========================
 
   class HomeControl {
+
     onAdd(map) {
 
-      const container = document.createElement("div");
-      container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+      const container =
+        document.createElement("div");
 
-      const btn = document.createElement("button");
-      btn.className = "home-control-btn";
+      container.className =
+        "maplibregl-ctrl maplibregl-ctrl-group";
+
+      const btn =
+        document.createElement("button");
+
+      btn.className =
+        "home-control-btn";
+
       btn.innerHTML = "⌂";
+
       btn.title = "Reset View";
 
       btn.style.background = "#e6e6e6";
       btn.style.color = "#111";
 
       btn.onclick = () => {
+
         map.flyTo({
           center: [0, 20],
-          zoom: 1.0,
+          zoom: 1.8,
           bearing: 0,
           pitch: 0,
-          duration: 1000
+          duration: 1200
         });
+
       };
 
       container.appendChild(btn);
+
       return container;
     }
   }
 
-  map.addControl(new HomeControl(), "top-right");
+  map.addControl(
+    new HomeControl(),
+    "top-right"
+  );
 
   // =========================
   // CLOCK
   // =========================
 
   function updateClock() {
+
     document.getElementById("clockText").innerText =
       new Date().toLocaleTimeString() +
       " | " +
@@ -60,6 +79,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   updateClock();
+
   setInterval(updateClock, 1000);
 
   // =========================
@@ -68,22 +88,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function loadNews() {
 
-    const panel = document.getElementById("newsPanel");
+    const panel =
+      document.getElementById("newsPanel");
 
-    panel.innerHTML = "Loading news...";
+    panel.innerHTML =
+      "Loading news...";
 
     try {
 
-      const res = await fetch(
-        "https://api.allorigins.win/raw?url=" +
-        encodeURIComponent("https://feeds.bbci.co.uk/news/world/rss.xml")
-      );
+      const res =
+        await fetch(
+          "https://api.allorigins.win/raw?url=" +
+          encodeURIComponent(
+            "https://feeds.bbci.co.uk/news/world/rss.xml"
+          )
+        );
 
-      const text = await res.text();
+      const text =
+        await res.text();
 
-      const xml = new DOMParser().parseFromString(text, "text/xml");
+      const xml =
+        new DOMParser()
+        .parseFromString(text, "text/xml");
 
-      const items = xml.querySelectorAll("item");
+      const items =
+        xml.querySelectorAll("item");
 
       panel.innerHTML = "";
 
@@ -91,61 +120,84 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (i > 12) return;
 
-        const title = item.querySelector("title")?.textContent;
-        const link = item.querySelector("link")?.textContent;
+        const title =
+          item.querySelector("title")
+          ?.textContent;
 
-        const div = document.createElement("div");
+        const link =
+          item.querySelector("link")
+          ?.textContent;
 
-        div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
+        const div =
+          document.createElement("div");
+
+        div.innerHTML =
+          `<a href="${link}" target="_blank">${title}</a>`;
+
         panel.appendChild(div);
       });
 
-    } catch (e) {
-      console.error(e);
-      panel.innerHTML = "News unavailable";
+    } catch (err) {
+
+      console.error(err);
+
+      panel.innerHTML =
+        "News unavailable";
     }
   }
 
   loadNews();
+
   setInterval(loadNews, 60000);
 
   // =========================
-  // GEOJSON
+  // LOAD GEOJSON
   // =========================
 
-  const geojson = await fetch(
-    "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
-  ).then(r => r.json());
+  const geojson =
+    await fetch(
+      "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
+    ).then(r => r.json());
 
   // =========================
-  // RISK.JSON
+  // LOAD RISK.JSON
   // =========================
 
   let riskMap = {};
   let riskIndex = {};
   let colorsEnabled = true;
 
-  async function loadRisk() {
+  try {
 
-    try {
+    // IMPORTANT:
+    // risk.json should be:
+    // /public/data/risk.json
 
-      const res = await fetch("./data/risk.json");
-      riskMap = await res.json();
+    const res =
+      await fetch("/data/risk.json");
 
-      buildRiskIndex();
+    riskMap =
+      await res.json();
 
-      console.log("✅ risk loaded");
+    console.log(
+      "✅ risk.json loaded",
+      riskMap
+    );
 
-    } catch (e) {
-      console.error("❌ risk load failed", e);
-    }
+  } catch (err) {
+
+    console.error(
+      "❌ FAILED TO LOAD risk.json",
+      err
+    );
   }
 
   // =========================
-  // NORMALIZER
+  // NORMALIZE
   // =========================
 
   function normalize(name) {
+
     return name
       .toLowerCase()
       .replace(/\(.*?\)/g, "")
@@ -155,40 +207,29 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // =========================
-  // BUILD INDEX (CRITICAL FIX)
+  // BUILD RISK INDEX
   // =========================
 
-  function buildRiskIndex() {
+  Object.entries(riskMap).forEach(([k, v]) => {
 
-    riskIndex = {};
+    riskIndex[
+      normalize(k)
+    ] = v;
+  });
 
-    Object.entries(riskMap).forEach(([k, v]) => {
-      riskIndex[normalize(k)] = v;
-    });
-  }
-
-  // =========================
-  // COLORS
-  // =========================
-
-  function getColor(level) {
-
-    switch (Number(level)) {
-
-      case 4: return "#c0392b";
-      case 3: return "#e67e22";
-      case 2: return "#f1c40f";
-      default: return "#00aa44";
-    }
-  }
+  console.log(
+    "✅ risk index built",
+    riskIndex
+  );
 
   // =========================
-  // APPLY COLORS (FIXED CORE)
+  // COUNTRY ALIASES
   // =========================
 
   const aliases = {
-    "russian federation": "russia",
+
     "united states of america": "united states",
+    "russian federation": "russia",
     "iran islamic republic of": "iran",
     "korea republic of": "south korea",
     "korea democratic peoples republic of": "north korea",
@@ -197,28 +238,64 @@ document.addEventListener("DOMContentLoaded", async () => {
     "bolivia plurinational state of": "bolivia",
     "moldova republic of": "moldova",
     "lao peoples democratic republic": "laos",
-    "united republic of tanzania": "tanzania"
+    "united republic of tanzania": "tanzania",
+    "czech republic": "czechia",
+    "macedonia": "north macedonia"
   };
+
+  // =========================
+  // COLORS
+  // =========================
+
+  function getColor(level) {
+
+    switch(Number(level)) {
+
+      case 4:
+        return "#c0392b";
+
+      case 3:
+        return "#e67e22";
+
+      case 2:
+        return "#f1c40f";
+
+      default:
+        return "#2ecc71";
+    }
+  }
+
+  // =========================
+  // APPLY COLORS
+  // =========================
 
   function applyColors() {
 
     geojson.features.forEach(f => {
 
-      let name = normalize(f.properties.name);
+      let name =
+        normalize(
+          f.properties.name
+        );
 
+      // alias correction
       if (aliases[name]) {
         name = aliases[name];
       }
 
-      const level = riskIndex[name] ?? 1;
+      const level =
+        riskIndex[name] ?? 1;
 
-      f.properties.color = colorsEnabled
-        ? getColor(level)
-        : "#2a2a2a";
+      f.properties.color =
+        colorsEnabled
+          ? getColor(level)
+          : "#2a2a2a";
     });
 
     if (map.getSource("countries")) {
-      map.getSource("countries").setData(geojson);
+
+      map.getSource("countries")
+        .setData(geojson);
     }
   }
 
@@ -226,7 +303,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // MAP LOAD
   // =========================
 
-  map.on("load", async () => {
+  map.on("load", () => {
 
     map.addSource("countries", {
       type: "geojson",
@@ -239,7 +316,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       source: "countries",
       paint: {
         "fill-color": ["get", "color"],
-        "fill-opacity": 0.75
+        "fill-opacity": 0.78
       }
     });
 
@@ -253,16 +330,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
 
-    document
-      .getElementById("colorToggle")
-      ?.addEventListener("change", (e) => {
-
-        colorsEnabled = e.target.checked;
-        applyColors();
-      });
-
-    await loadRisk();
+    // APPLY COLORS
     applyColors();
+
+    // TOGGLE
+    const toggle =
+      document.getElementById("colorToggle");
+
+    if (toggle) {
+
+      toggle.addEventListener(
+        "change",
+        (e) => {
+
+          colorsEnabled =
+            e.target.checked;
+
+          applyColors();
+        }
+      );
+    }
+
     setupSearch();
   });
 
@@ -272,24 +360,42 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function setupSearch() {
 
-    const input = document.getElementById("searchBox");
+    const input =
+      document.getElementById("searchBox");
 
-    const dropdown = document.createElement("div");
-    dropdown.className = "searchDropdown";
-    dropdown.style.display = "none";
+    const dropdown =
+      document.createElement("div");
+
+    dropdown.className =
+      "searchDropdown";
+
+    dropdown.style.display =
+      "none";
+
     document.body.appendChild(dropdown);
 
     function matches(q) {
+
       q = q.toLowerCase();
+
       return geojson.features
-        .filter(f => f.properties.name.toLowerCase().includes(q))
+        .filter(f =>
+          f.properties.name
+            .toLowerCase()
+            .includes(q)
+        )
         .slice(0, 8);
     }
 
     function highlight(f) {
 
-      if (map.getLayer("highlight")) map.removeLayer("highlight");
-      if (map.getSource("highlight-src")) map.removeSource("highlight-src");
+      if (map.getLayer("highlight")) {
+        map.removeLayer("highlight");
+      }
+
+      if (map.getSource("highlight-src")) {
+        map.removeSource("highlight-src");
+      }
 
       map.addSource("highlight-src", {
         type: "geojson",
@@ -309,38 +415,62 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     input.addEventListener("input", e => {
 
-      const list = matches(e.target.value);
+      const value =
+        e.target.value;
+
+      const list =
+        matches(value);
 
       dropdown.innerHTML = "";
 
       if (!list.length) {
-        dropdown.style.display = "none";
+
+        dropdown.style.display =
+          "none";
+
         return;
       }
 
-      const rect = input.getBoundingClientRect();
+      const rect =
+        input.getBoundingClientRect();
 
-      dropdown.style.left = rect.left + "px";
-      dropdown.style.top = rect.bottom + "px";
+      dropdown.style.left =
+        rect.left + "px";
+
+      dropdown.style.top =
+        rect.bottom + "px";
 
       list.forEach(f => {
 
-        const item = document.createElement("div");
-        item.className = "searchItem";
-        item.textContent = f.properties.name;
+        const item =
+          document.createElement("div");
+
+        item.className =
+          "searchItem";
+
+        item.textContent =
+          f.properties.name;
 
         item.onclick = () => {
 
-          input.value = f.properties.name;
-          dropdown.style.display = "none";
+          input.value =
+            f.properties.name;
+
+          dropdown.style.display =
+            "none";
 
           highlight(f);
 
-          const bounds = new maplibregl.LngLatBounds();
+          const bounds =
+            new maplibregl.LngLatBounds();
 
           function add(c) {
-            if (typeof c[0] === "number") bounds.extend(c);
-            else c.forEach(add);
+
+            if (typeof c[0] === "number") {
+              bounds.extend(c);
+            } else {
+              c.forEach(add);
+            }
           }
 
           add(f.geometry.coordinates);
@@ -354,11 +484,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         dropdown.appendChild(item);
       });
 
-      dropdown.style.display = "block";
+      dropdown.style.display =
+        "block";
     });
 
     document.addEventListener("click", e => {
-      if (e.target !== input) dropdown.style.display = "none";
+
+      if (e.target !== input) {
+
+        dropdown.style.display =
+          "none";
+      }
     });
   }
 
