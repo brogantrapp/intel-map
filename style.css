@@ -1,88 +1,327 @@
-
-html, body {
+* {
   margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #050608;
-  font-family: Arial, sans-serif;
+
+  background: #050505;
+
+  font-family: Arial, Helvetica, sans-serif;
+
   color: white;
 }
 
 /* =========================
-   TOP BAR (FIXED HEIGHT)
+   TOP BAR
 ========================= */
 
 #topbar {
+
   position: absolute;
+
   top: 0;
   left: 0;
-  right: 320px;
 
-  height: 60px; /* FIXED */
-  background: #111;
+  width: 100%;
+  height: 58px;
+
+  background: rgba(10,10,10,0.96);
+
+  border-bottom: 1px solid #1d1d1d;
+
+  z-index: 1000;
 
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
 
-  padding: 0 12px;
-  z-index: 999;
+  padding: 0 18px;
+}
+
+#brand {
+
+  font-size: 18px;
+  font-weight: bold;
+
+  letter-spacing: 2px;
+
+  color: #f0f0f0;
+}
+
+#searchWrap {
+
+  position: absolute;
+
+  left: 50%;
+
+  transform: translateX(-50%);
 }
 
 #searchBox {
-  width: 240px;
-  padding: 8px;
 
-  background: #1a1a1a;
-  border: 1px solid #333;
+  width: 280px;
+  height: 38px;
+
+  background: #111;
+
+  border: 1px solid #2a2a2a;
+
+  border-radius: 10px;
+
   color: white;
+
+  padding: 0 14px;
+
+  outline: none;
+
+  font-size: 14px;
+}
+
+#searchBox:focus {
+  border-color: #666;
+}
+
+#topRight {
+
+  display: flex;
+  align-items: center;
+
+  gap: 18px;
 }
 
 #clockText {
-  color: #aaa;
+
+  color: #bdbdbd;
+
   font-size: 13px;
 }
 
-.toggle-switch {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #ddd;
-  font-family: Arial, sans-serif;
+/* =========================
+   MAP
+========================= */
+
+#map {
+
+  position: absolute;
+
+  top: 58px;
+  left: 0;
+
+  width: calc(100% - 320px);
+  height: calc(100% - 58px);
+}
+
+/* =========================
+   NEWS SIDEBAR
+========================= */
+
+#newsSidebar {
+
+  position: absolute;
+
+  top: 58px;
+  right: 0;
+
+  width: 320px;
+  height: calc(100% - 58px);
+
+  background: rgba(10,10,10,0.97);
+
+  border-left: 1px solid #1d1d1d;
+
+  overflow-y: auto;
+
+  z-index: 500;
+}
+
+#newsHeader {
+
+  position: sticky;
+
+  top: 0;
+
+  background: #0d0d0d;
+
+  border-bottom: 1px solid #1f1f1f;
+
+  padding: 16px;
+
+  font-size: 14px;
+  font-weight: bold;
+
+  letter-spacing: 2px;
+
+  color: #d8d8d8;
+
+  z-index: 20;
+}
+
+#newsPanel {
+  padding: 12px;
+}
+
+#newsPanel div {
+
+  margin-bottom: 12px;
+
+  background: #111;
+
+  border: 1px solid #1f1f1f;
+
+  border-radius: 10px;
+
+  padding: 12px;
+
+  transition: 0.2s;
+}
+
+#newsPanel div:hover {
+  background: #171717;
+}
+
+#newsPanel a {
+
+  color: #d6d6d6;
+
+  text-decoration: none;
+
   font-size: 13px;
+
+  line-height: 1.5;
+}
+
+/* =========================
+   SEARCH DROPDOWN
+========================= */
+
+.searchDropdown {
+
+  position: absolute;
+
+  width: 280px;
+
+  background: #111;
+
+  border: 1px solid #222;
+
+  border-radius: 10px;
+
+  overflow: hidden;
+
+  z-index: 9999;
+}
+
+.searchItem {
+
+  padding: 10px 12px;
+
+  cursor: pointer;
+
+  color: #ddd;
+
+  font-size: 14px;
+
+  border-bottom: 1px solid #1f1f1f;
+}
+
+.searchItem:hover {
+  background: #1d1d1d;
+}
+
+/* =========================
+   MAP CONTROLS
+========================= */
+
+.maplibregl-ctrl-top-right {
+
+  top: 74px !important;
+
+  right: 340px !important;
+}
+
+.maplibregl-ctrl-group {
+
+  background: #e2e2e2 !important;
+
+  border-radius: 10px !important;
+
+  overflow: hidden;
+}
+
+.maplibregl-ctrl button {
+
+  background: #e2e2e2 !important;
+
+  color: #111 !important;
+}
+
+.home-control-btn {
+
+  font-size: 18px !important;
+
+  font-weight: bold;
+}
+
+/* =========================
+   TOGGLE
+========================= */
+
+.toggle-switch {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
   user-select: none;
 }
 
-/* hide default checkbox */
 .toggle-switch input {
   display: none;
 }
 
-/* slider background */
 .slider {
+
   width: 38px;
   height: 20px;
+
   background: #444;
+
   border-radius: 20px;
+
   position: relative;
+
   cursor: pointer;
+
   transition: 0.2s;
 }
 
-/* circle */
 .slider::before {
+
   content: "";
+
   position: absolute;
+
   width: 16px;
   height: 16px;
-  background: #fff;
+
   border-radius: 50%;
+
+  background: white;
+
   top: 2px;
   left: 2px;
+
   transition: 0.2s;
 }
 
-/* checked state */
 .toggle-switch input:checked + .slider {
   background: #00aa44;
 }
@@ -92,117 +331,8 @@ html, body {
 }
 
 .label-text {
-  margin-left: 5px;
-}
 
-/* =========================
-   MAP AREA (PUSHED DOWN)
-========================= */
+  color: #bbb;
 
-#map {
-  position: absolute;
-  top: 60px;   /* FIXED (matches topbar) */
-  left: 0;
-  right: 320px;
-  bottom: 0;
-}
-
-/* =========================
-   SIDEBAR NEWS
-========================= */
-
-#sidebar {
-  position: absolute;
-  top: 0;
-  right: 0;
-
-  width: 320px;
-  bottom: 0;
-
-  background: #0d0f12;
-
-  border-left: 1px solid #222;
-
-  overflow-y: auto;
-
-  padding: 12px;
-  box-sizing: border-box;
-}
-
-#sidebar h2 {
-  margin-top: 8px;   /* FIXED so it doesn't hug top */
-  margin-left: 6px;   /* FIXED horizontal spacing */
-  color: #aaa;
-}
-
-/* news items */
-#newsPanel div {
-  padding: 10px;
-  border-bottom: 1px solid #222;
-}
-
-#newsPanel a {
-  color: #ccc;
-  text-decoration: none;
-}
-
-/* =========================
-   SEARCH DROPDOWN
-========================= */
-
-.searchDropdown {
-  position: absolute;
-  background: #111;
-  border: 1px solid #333;
-
-  width: 240px;
-  max-height: 220px;
-
-  overflow-y: auto;
-
-  z-index: 9999;
-}
-
-.searchItem {
-  padding: 8px;
-  cursor: pointer;
-}
-
-.searchItem:hover {
-  background: #222;
-}
-
-/* =========================
-   MAP CONTROL FIX (MOVE LEFT)
-========================= */
-
-.maplibregl-ctrl-top-right {
-  right: 0px !important; /* pushes controls away from sidebar */
-  top: 0px !important;    /* below topbar */
-}
-
-/* =========================
-   HOME BUTTON STYLE (PROFESSIONAL)
-========================= */
-
-.home-control-btn {
-  width: 32px;
-  height: 32px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background: #111;
-  border: 1px solid #333;
-
-  color: #ccc;
-
-  cursor: pointer;
-
-  font-size: 14px;
-}
-
-.home-control-btn:hover {
-  background: #1f1f1f;
+  font-size: 13px;
 }
