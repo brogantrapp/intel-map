@@ -1,93 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+ <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet"/>
 
-  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="style.css">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  />
+<div id="topbar">
 
-  <title>Intel Map</title>
+  <input id="searchBox" placeholder="Search country..." />
 
-  <link
-    href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
-    rel="stylesheet"
-  />
+  <div id="clockText"></div>
 
-  <link
-    rel="stylesheet"
-    href="style.css"
-  />
+  <label id="toggleWrap">
+    <input type="checkbox" id="colorToggle" checked>
+    Risk Colors
+  </label>
 
-</head>
+</div>
 
-<body>
+<div id="map"></div>
 
-  <!-- TOP BAR -->
-  <div id="topbar">
+<div id="sidebar">
+  <h2>World Intel Feed</h2>
+  <div id="newsPanel"></div>
+</div>
 
-    <div id="brand">
-      INTEL MAP
-    </div>
-
-    <!-- SEARCH -->
-    <div id="searchWrap">
-
-      <input
-        type="text"
-        id="searchBox"
-        placeholder="Search country..."
-        autocomplete="on"
-      />
-
-    </div>
-
-    <!-- RIGHT -->
-    <div id="topRight">
-
-      <!-- COLOR TOGGLE -->
-      <label class="toggle-switch">
-
-        <input
-          type="checkbox"
-          id="colorToggle"
-          checked
-        />
-
-        <span class="slider"></span>
-
-        <span class="label-text">
-          Risk Colors
-        </span>
-
-      </label>
-
-      <!-- CLOCK -->
-      <div id="clockText"></div>
-
-    </div>
-
-  </div>
-
-  <!-- MAP -->
-  <div id="map"></div>
-
-  <!-- NEWS -->
-  <div id="newsSidebar">
-
-    <div id="newsHeader">
-      GLOBAL NEWS
-    </div>
-
-    <div id="newsPanel"></div>
-
-  </div>
-
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-
-  <script src="app.js"></script>
-
-</body>
+<script src="app.js"></script>
 </html>
