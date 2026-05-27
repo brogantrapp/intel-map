@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
- <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet"/>
 
-  <link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet"/>
+
+<link rel="stylesheet" href="style.css">
 
 <div id="topbar">
 
@@ -16,6 +17,12 @@
     Risk Colors
   </label>
 
+  <!-- ✅ ADDED: Global Risk Index -->
+  <div id="globalRiskIndex">
+    GLOBAL RISK INDEX:
+    <span id="riskLevelText">MODERATE</span>
+  </div>
+
 </div>
 
 <div id="map"></div>
@@ -25,5 +32,31 @@
   <div id="newsPanel"></div>
 </div>
 
+<!-- ✅ ADDED: Country Info Panel -->
+<div id="countryPanel" class="countryPanel hidden">
+
+  <div class="countryHeader">
+    <div id="countryName">Select a Country</div>
+    <div id="countryRiskBadge">RISK</div>
+  </div>
+
+  <div class="countryInfoRow">
+    <span class="label">Risk Level:</span>
+    <span id="countryRiskText">—</span>
+  </div>
+
+  <div class="countryInfoRow">
+    <span class="label">Region:</span>
+    <span id="countryRegion">—</span>
+  </div>
+
+  <div class="countryInfoRow">
+    <span class="label">Status:</span>
+    <span id="countryStatus">—</span>
+  </div>
+
+</div>
+
 <script src="app.js"></script>
+
 </html>
