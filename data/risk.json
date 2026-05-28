@@ -1,5 +1,5 @@
 {
-  "Afghanistan": { "risk": 4, "region": "Asia" },
+  "Afghanistan": { "risk": 4, "region": "Middle East" },
   "Albania": { "risk": 2, "region": "Europe" },
   "Algeria": { "risk": 2, "region": "Africa" },
   "Andorra": { "risk": 1, "region": "Europe" },
@@ -189,7 +189,7 @@
   "Ukraine": { "risk": 4, "region": "Europe" },
   "United Arab Emirates": { "risk": 3, "region": "Middle East" },
   "United Kingdom": { "risk": 2, "region": "Europe" },
-  "United States": { "risk": 2, "region": "North America" },
+  "United States of America": { "risk": 2, "region": "North America" },
   "Uruguay": { "risk": 2, "region": "South America" },
   "Uzbekistan": { "risk": 1, "region": "Asia" },
   "Vanuatu": { "risk": 1, "region": "Oceania" },
