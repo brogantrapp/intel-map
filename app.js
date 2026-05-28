@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     container: "map",
     style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
     center: [0, 20],
-    zoom: 1.0
+    zoom: 1.8
   });
 
   map.addControl(new maplibregl.NavigationControl(), "top-right");
@@ -23,7 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       btn.onclick = () => {
         map.flyTo({
           center: [0, 20],
-          zoom: 1.0,
+          zoom: 1.8,
           bearing: 0,
           pitch: 0,
           duration: 1200
@@ -147,10 +147,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "Unknown";
   }
 
-  // ✅ FIXED INFO PANEL (ONLY CHANGE)
   function updateInfo(countryName, level) {
 
-    const panel = document.getElementById("countryPanel");
+    const panel = document.getElementById("infoPanel");
     if (!panel) return;
 
     const region = getRegion(countryName);
@@ -160,23 +159,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (level == 3) label = "High Risk";
     if (level == 4) label = "Extreme Risk";
 
-    panel.classList.remove("hidden");
-
     panel.innerHTML = `
-      <div class="countryHeader">
-        <div id="countryName">${countryName}</div>
-        <div id="countryRiskBadge">Risk ${level}</div>
-      </div>
-
-      <div class="countryInfoRow">
-        <span class="label">Status</span>
-        <span>${label}</span>
-      </div>
-
-      <div class="countryInfoRow">
-        <span class="label">Region</span>
-        <span>${region}</span>
-      </div>
+      <h3>${countryName}</h3>
+      <p><b>Risk:</b> ${level}</p>
+      <p><b>Status:</b> ${label}</p>
+      <p><b>Region:</b> ${region}</p>
     `;
   }
 
@@ -192,9 +179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const level = match ? (match[1]?.risk ?? match[1]) : 1;
 
       f.properties.color =
-        colorsEnabled
-          ? getColor(level)
-          : "#2a2a2a";
+        colorsEnabled ? getColor(level) : "#2a2a2a";
     });
 
     if (map.getSource("countries")) {
@@ -337,5 +322,4 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (e.target !== input) dropdown.style.display = "none";
     });
   }
-
 });
