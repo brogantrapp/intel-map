@@ -147,9 +147,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "Unknown";
   }
 
+  // ✅ FIXED INFO PANEL (ONLY CHANGE)
   function updateInfo(countryName, level) {
 
-    const panel = document.getElementById("infoPanel");
+    const panel = document.getElementById("countryPanel");
     if (!panel) return;
 
     const region = getRegion(countryName);
@@ -159,11 +160,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (level == 3) label = "High Risk";
     if (level == 4) label = "Extreme Risk";
 
+    panel.classList.remove("hidden");
+
     panel.innerHTML = `
-      <h3>${countryName}</h3>
-      <p><b>Risk:</b> ${level}</p>
-      <p><b>Status:</b> ${label}</p>
-      <p><b>Region:</b> ${region}</p>
+      <div class="countryHeader">
+        <div id="countryName">${countryName}</div>
+        <div id="countryRiskBadge">Risk ${level}</div>
+      </div>
+
+      <div class="countryInfoRow">
+        <span class="label">Status</span>
+        <span>${label}</span>
+      </div>
+
+      <div class="countryInfoRow">
+        <span class="label">Region</span>
+        <span>${region}</span>
+      </div>
     `;
   }
 
@@ -179,7 +192,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const level = match ? (match[1]?.risk ?? match[1]) : 1;
 
       f.properties.color =
-        colorsEnabled ? getColor(level) : "#2a2a2a";
+        colorsEnabled
+          ? getColor(level)
+          : "#2a2a2a";
     });
 
     if (map.getSource("countries")) {
@@ -322,4 +337,5 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (e.target !== input) dropdown.style.display = "none";
     });
   }
+
 });
